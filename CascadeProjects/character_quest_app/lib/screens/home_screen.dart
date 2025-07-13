@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(
               Icons.person_add,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -111,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Create your first character to start your quest!',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(
               Icons.person_search,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -176,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Select a character from the Character tab to manage tasks',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
               textAlign: TextAlign.center,
             ),

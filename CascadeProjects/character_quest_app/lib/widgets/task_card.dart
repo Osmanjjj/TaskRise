@@ -44,7 +44,7 @@ class TaskCard extends StatelessWidget {
 
     return Card(
       elevation: isCompleted ? 1 : 3,
-      color: isCompleted ? colorScheme.surfaceVariant.withOpacity(0.5) : null,
+      color: isCompleted ? colorScheme.surfaceVariant.withValues(alpha: 0.5) : null,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -59,8 +59,8 @@ class TaskCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isCompleted
-                        ? Colors.green.withOpacity(0.2)
-                        : getDifficultyColor().withOpacity(0.2),
+                        ? Colors.green.withValues(alpha: 0.2)
+                        : getDifficultyColor().withValues(alpha: 0.2),
                   ),
                   child: Icon(
                     isCompleted ? Icons.check_circle : getDifficultyIcon(),
@@ -82,7 +82,7 @@ class TaskCard extends StatelessWidget {
                               ? TextDecoration.lineThrough
                               : null,
                           color: isCompleted
-                              ? colorScheme.onSurface.withOpacity(0.6)
+                              ? colorScheme.onSurface.withValues(alpha: 0.6)
                               : null,
                         ),
                       ),
@@ -92,7 +92,7 @@ class TaskCard extends StatelessWidget {
                           child: Text(
                             task.description!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -123,10 +123,10 @@ class TaskCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: getDifficultyColor().withOpacity(0.1),
+                    color: getDifficultyColor().withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: getDifficultyColor().withOpacity(0.3),
+                      color: getDifficultyColor().withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -156,10 +156,10 @@ class TaskCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.1),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: colorScheme.primary.withOpacity(0.3),
+                      color: colorScheme.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -189,7 +189,7 @@ class TaskCard extends StatelessWidget {
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: _isDueSoon(task.dueDate!)
                           ? Colors.red
-                          : colorScheme.onSurface.withOpacity(0.6),
+                          : colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
               ],

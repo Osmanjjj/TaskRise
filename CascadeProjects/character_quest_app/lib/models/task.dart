@@ -1,6 +1,22 @@
 enum TaskStatus { pending, completed, failed }
 
-enum TaskDifficulty { easy, normal, hard }
+enum TaskDifficulty {
+  easy(displayName: '簡単', color: 0xFF4CAF50, staminaCost: 1, icon: 'easy_icon'),
+  normal(displayName: '普通', color: 0xFFFF9800, staminaCost: 2, icon: 'normal_icon'),
+  hard(displayName: '難しい', color: 0xFFF44336, staminaCost: 3, icon: 'hard_icon');
+
+  const TaskDifficulty({
+    required this.displayName,
+    required this.color,
+    required this.staminaCost,
+    required this.icon,
+  });
+
+  final String displayName;
+  final int color;
+  final int staminaCost;
+  final String icon;
+}
 
 class Task {
   final String id;
@@ -13,6 +29,10 @@ class Task {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? characterId;
+  
+  // Habit-related properties for compatibility
+  final int chainLength;
+  final bool isCompleted;
 
   Task({
     required this.id,
@@ -25,7 +45,9 @@ class Task {
     required this.createdAt,
     required this.updatedAt,
     this.characterId,
-  });
+    this.chainLength = 0,
+    bool? isCompleted,
+  }) : isCompleted = isCompleted ?? (status == TaskStatus.completed);
 
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
@@ -45,6 +67,7 @@ class Task {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       characterId: json['character_id'],
+      chainLength: json['chain_length'] ?? 0,
     );
   }
 
@@ -60,6 +83,7 @@ class Task {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'character_id': characterId,
+      'chain_length': chainLength,
     };
   }
 
@@ -74,6 +98,8 @@ class Task {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? characterId,
+    int? chainLength,
+    bool? isCompleted,
   }) {
     return Task(
       id: id ?? this.id,
@@ -86,6 +112,8 @@ class Task {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       characterId: characterId ?? this.characterId,
+      chainLength: chainLength ?? this.chainLength,
+      isCompleted: isCompleted,
     );
   }
 

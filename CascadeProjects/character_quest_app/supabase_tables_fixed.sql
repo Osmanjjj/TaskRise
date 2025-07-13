@@ -1,10 +1,11 @@
--- TaskRise Database Schema
+-- TaskRise Database Schema (Fixed)
 -- Complete schema for Habitica-inspired habit and quest management app
+-- Fixes circular reference issues
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Characters table (extended)
+-- Characters table (without foreign keys first)
 CREATE TABLE IF NOT EXISTS characters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
@@ -18,8 +19,8 @@ CREATE TABLE IF NOT EXISTS characters (
     battle_points INTEGER DEFAULT 0 CHECK (battle_points >= 0),
     stamina INTEGER DEFAULT 100 CHECK (stamina >= 0),
     max_stamina INTEGER DEFAULT 100 CHECK (max_stamina >= 0),
-    guild_id UUID,
-    mentor_id UUID,
+    guild_id UUID, -- No constraint yet
+    mentor_id UUID, -- No constraint yet
     crystal_inventory JSONB DEFAULT '{}',
     equipped_items JSONB DEFAULT '{}',
     consecutive_days INTEGER DEFAULT 0 CHECK (consecutive_days >= 0),
@@ -28,6 +29,30 @@ CREATE TABLE IF NOT EXISTS characters (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Guilds table (without foreign keys first)
+CREATE TABLE IF NOT EXISTS guilds (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    guild_type VARCHAR(20) DEFAULT 'weekly' CHECK (guild_type IN ('weekly', 'fixed')),
+    max_members INTEGER DEFAULT 10 CHECK (max_members > 0),
+    current_members INTEGER DEFAULT 0 CHECK (current_members >= 0),
+    leader_id UUID, -- No constraint yet
+    join_code VARCHAR(20) UNIQUE,
+    is_private BOOLEAN DEFAULT false,
+    weekly_reset_day INTEGER DEFAULT 1 CHECK (weekly_reset_day BETWEEN 1 AND 7),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Now add foreign key constraints for the circular references
+ALTER TABLE characters 
+    ADD CONSTRAINT fk_characters_guild FOREIGN KEY (guild_id) REFERENCES guilds(id),
+    ADD CONSTRAINT fk_characters_mentor FOREIGN KEY (mentor_id) REFERENCES characters(id);
+
+ALTER TABLE guilds
+    ADD CONSTRAINT fk_guilds_leader FOREIGN KEY (leader_id) REFERENCES characters(id);
 
 -- Tasks table
 CREATE TABLE IF NOT EXISTS tasks (
@@ -168,22 +193,6 @@ CREATE TABLE IF NOT EXISTS raid_participations (
     UNIQUE(raid_boss_id, character_id)
 );
 
--- Guilds table
-CREATE TABLE IF NOT EXISTS guilds (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    guild_type VARCHAR(20) DEFAULT 'weekly' CHECK (guild_type IN ('weekly', 'fixed')),
-    max_members INTEGER DEFAULT 10 CHECK (max_members > 0),
-    current_members INTEGER DEFAULT 0 CHECK (current_members >= 0),
-    leader_id UUID REFERENCES characters(id),
-    join_code VARCHAR(20) UNIQUE,
-    is_private BOOLEAN DEFAULT false,
-    weekly_reset_day INTEGER DEFAULT 1 CHECK (weekly_reset_day BETWEEN 1 AND 7),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Guild memberships table
 CREATE TABLE IF NOT EXISTS guild_memberships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -214,11 +223,6 @@ CREATE TABLE IF NOT EXISTS guild_quests (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Add foreign key constraints for characters table
-ALTER TABLE characters 
-    ADD CONSTRAINT fk_characters_guild FOREIGN KEY (guild_id) REFERENCES guilds(id),
-    ADD CONSTRAINT fk_characters_mentor FOREIGN KEY (mentor_id) REFERENCES characters(id);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_tasks_character_id ON tasks(character_id);
@@ -310,3 +314,23 @@ CREATE TRIGGER update_guild_memberships_updated_at BEFORE UPDATE ON guild_member
 
 CREATE TRIGGER update_guild_quests_updated_at BEFORE UPDATE ON guild_quests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Mentor stats function
+CREATE OR REPLACE FUNCTION get_mentor_stats(mentor_id_param UUID)
+RETURNS TABLE(
+    total_mentees INTEGER,
+    active_mentees INTEGER,
+    completed_mentorships INTEGER,
+    total_rewards_earned INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::INTEGER as total_mentees,
+        COUNT(CASE WHEN mr.status = 'active' THEN 1 END)::INTEGER as active_mentees,
+        COUNT(CASE WHEN mr.status = 'completed' THEN 1 END)::INTEGER as completed_mentorships,
+        COALESCE(SUM(mr.mentor_rewards_earned), 0)::INTEGER as total_rewards_earned
+    FROM mentor_relationships mr
+    WHERE mr.mentor_id = mentor_id_param;
+END;
+$$ LANGUAGE plpgsql;

@@ -124,13 +124,13 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? getDifficultyColor().withOpacity(0.1)
-                                : theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                                ? getDifficultyColor().withValues(alpha: 0.1)
+                                : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSelected
                                   ? getDifficultyColor()
-                                  : theme.colorScheme.outline.withOpacity(0.3),
+                                  : theme.colorScheme.outline.withValues(alpha: 0.3),
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -140,7 +140,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                                 _getDifficultyIcon(difficulty),
                                 color: isSelected
                                     ? getDifficultyColor()
-                                    : theme.colorScheme.onSurface.withOpacity(0.6),
+                                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 size: 20,
                               ),
                               const SizedBox(height: 4),
@@ -150,7 +150,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                                   fontWeight: FontWeight.bold,
                                   color: isSelected
                                       ? getDifficultyColor()
-                                      : theme.colorScheme.onSurface.withOpacity(0.8),
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.8),
                                 ),
                               ),
                               Text(
@@ -158,7 +158,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: isSelected
                                       ? getDifficultyColor()
-                                      : theme.colorScheme.onSurface.withOpacity(0.6),
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -185,7 +185,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: theme.colorScheme.outline.withOpacity(0.3),
+                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),

@@ -25,7 +25,7 @@ class TaskList extends StatelessWidget {
             Icon(
               Icons.task_alt,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -36,7 +36,7 @@ class TaskList extends StatelessWidget {
             Text(
               'Create your first task to start earning experience!',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -96,7 +96,7 @@ class TaskList extends StatelessWidget {
             Icon(
               isPending ? Icons.pending_actions : Icons.check_circle,
               size: 48,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -109,7 +109,7 @@ class TaskList extends StatelessWidget {
                   ? 'Create a task to start your quest!'
                   : 'Complete some tasks to see them here!',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
               textAlign: TextAlign.center,
             ),
