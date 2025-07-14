@@ -4,7 +4,7 @@ import '../providers/character_provider.dart';
 import '../models/subscription.dart';
 
 class SubscriptionStatusWidget extends StatelessWidget {
-  const SubscriptionStatusWidget({Key? key}) : super(key: key);
+  const SubscriptionStatusWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

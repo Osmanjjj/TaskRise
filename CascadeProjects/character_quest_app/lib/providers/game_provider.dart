@@ -2,16 +2,13 @@ import 'package:flutter/foundation.dart';
 import '../models/task.dart';
 import '../models/event.dart';
 import '../models/raid.dart';
-import '../models/guild.dart';
 import '../models/daily_stats.dart';
 import '../models/habit_completion.dart';
 import '../services/services.dart';
-import '../services/habit_service.dart';
-import '../services/event_service.dart';
 import 'dart:async';
 
 class GameProvider extends ChangeNotifier {
-  List<Task> _habits = [];
+  List<Task> _tasks = [];
   List<GameEvent> _activeEvents = [];
   List<GameEvent> _upcomingEvents = [];
   RaidBoss? _currentRaidBoss;
@@ -23,6 +20,7 @@ class GameProvider extends ChangeNotifier {
 
   // Services
   final HabitService _habitService = HabitService();
+  final TaskService _taskService = TaskService();
   final EventService _eventService = EventService();
 
   // Stream subscriptions for real-time updates
@@ -30,7 +28,8 @@ class GameProvider extends ChangeNotifier {
   StreamSubscription? _raidSubscription;
 
   // Getters
-  List<Task> get habits => List.unmodifiable(_habits);
+  List<Task> get tasks => List.unmodifiable(_tasks);
+  List<Task> get habits => tasks; // 互換性のため一時的に保持
   List<GameEvent> get activeEvents => _activeEvents;
   List<GameEvent> get upcomingEvents => _upcomingEvents;
   RaidBoss? get currentRaidBoss => _currentRaidBoss;
@@ -77,9 +76,11 @@ class GameProvider extends ChangeNotifier {
 
   /// Load character habits
   Future<void> _loadHabits(String characterId) async {
-    // This would come from a habit/task service
-    // For now, create placeholder habits
-    _habits = [
+    try {
+      _tasks = await _taskService.getTasksByCharacter();
+    } catch (e) {
+      // For now, create placeholder tasks if service fails
+      _tasks = [
       Task(
         id: '1',
         title: '朝の運動',
@@ -90,6 +91,7 @@ class GameProvider extends ChangeNotifier {
         updatedAt: DateTime.now().subtract(const Duration(days: 1)),
         isCompleted: false,
         chainLength: 5,
+        category: TaskCategory.health,
       ),
       Task(
         id: '2',
@@ -101,6 +103,7 @@ class GameProvider extends ChangeNotifier {
         updatedAt: DateTime.now().subtract(const Duration(days: 1)),
         isCompleted: false,
         chainLength: 12,
+        category: TaskCategory.learning,
       ),
       Task(
         id: '3',
@@ -112,8 +115,10 @@ class GameProvider extends ChangeNotifier {
         updatedAt: DateTime.now(),
         isCompleted: true,
         chainLength: 8,
+        category: TaskCategory.other,
       ),
     ];
+    }
     notifyListeners();
   }
 
@@ -148,7 +153,7 @@ class GameProvider extends ChangeNotifier {
   Future<bool> completeHabit(String characterId, String habitId) async {
     _setLoading(true);
     try {
-      final task = _habits.firstWhere((h) => h.id == habitId);
+      final task = _tasks.firstWhere((h) => h.id == habitId);
       final completion = await _habitService.completeHabit(
         characterId: characterId,
         taskId: habitId,
@@ -157,9 +162,9 @@ class GameProvider extends ChangeNotifier {
       
       if (completion != null) {
         // Update habit state
-        final habitIndex = _habits.indexWhere((h) => h.id == habitId);
+        final habitIndex = _tasks.indexWhere((h) => h.id == habitId);
         if (habitIndex != -1) {
-          _habits[habitIndex] = _habits[habitIndex].copyWith(
+          _tasks[habitIndex] = _tasks[habitIndex].copyWith(
             isCompleted: true,
             chainLength: completion.chainLength,
           );
@@ -364,19 +369,71 @@ class GameProvider extends ChangeNotifier {
 
   /// Check if character can complete habit (stamina check)
   bool canCompleteHabit(String habitId, int currentStamina) {
-    final habit = _habits.firstWhere((Task h) => h.id == habitId);
+    final habit = _tasks.firstWhere((Task h) => h.id == habitId);
     final staminaCost = habit.difficulty.staminaCost;
     return currentStamina >= staminaCost;
   }
 
   /// Get habits that can be completed today
   List<Task> getCompletableHabits(int currentStamina) {
-    return _habits.where((Task habit) => 
+    return _tasks.where((Task habit) => 
       !habit.isCompleted && 
       currentStamina >= habit.difficulty.staminaCost
     ).toList();
   }
   
+  /// Create a new habit
+  Future<void> createHabit({
+    required String name,
+    required String description,
+    required String category,
+    required int difficulty,
+  }) async {
+    try {
+      _setLoading(true);
+      
+      // Create new habit with proper difficulty mapping
+      final taskDifficulty = _mapDifficultyToTaskDifficulty(difficulty);
+      final experienceReward = difficulty * 10;
+      
+      final newHabit = Task(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: name,
+        description: description.isEmpty ? name : description,
+        difficulty: taskDifficulty,
+        experienceReward: experienceReward,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isCompleted: false,
+        chainLength: 0,
+      );
+      
+      // Add to habits list
+      _tasks.add(newHabit);
+      
+      // In a real app, this would save to the database
+      // await _habitService.createHabit(newHabit);
+      
+      notifyListeners();
+    } catch (e) {
+      _setError('習慣の作成に失敗しました: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  TaskDifficulty _mapDifficultyToTaskDifficulty(int difficulty) {
+    switch (difficulty) {
+      case 1: return TaskDifficulty.easy;
+      case 2: return TaskDifficulty.normal;
+      case 3: return TaskDifficulty.normal;
+      case 4: return TaskDifficulty.hard;
+      case 5: return TaskDifficulty.hard;
+      default: return TaskDifficulty.normal;
+    }
+  }
+
   /// Attack raid boss with battle points
   Future<bool> attackRaidBoss(String characterId, String raidBossId, int battlePoints) async {
     if (_currentRaidBoss == null || !_currentRaidBoss!.isActive) {
@@ -425,8 +482,8 @@ class GameProvider extends ChangeNotifier {
   // Getter for daily stats
   Map<String, dynamic> get dailyStats {
     return {
-      'habitsCompleted': _habits.where((Task h) => h.isCompleted).length,
-      'totalHabits': _habits.length,
+      'habitsCompleted': _tasks.where((Task h) => h.isCompleted).length,
+      'totalHabits': _tasks.length,
       'experienceGained': 0, // Mock data
       'crystalsEarned': 0, // Mock data
       'battlePointsEarned': 0, // Mock data

@@ -5,7 +5,7 @@ import '../providers/character_provider.dart';
 import '../models/event.dart';
 
 class ActiveEventsWidget extends StatelessWidget {
-  const ActiveEventsWidget({Key? key}) : super(key: key);
+  const ActiveEventsWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

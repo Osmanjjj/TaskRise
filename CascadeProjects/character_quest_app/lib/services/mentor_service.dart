@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mentor.dart';
 import '../models/character.dart' as char;
-import '../config/supabase_config.dart';
 
 class MentorService {
   final SupabaseClient _supabase = Supabase.instance.client;

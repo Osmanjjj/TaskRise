@@ -4,7 +4,7 @@ import '../providers/character_provider.dart';
 import '../widgets/mentor_status_widget.dart';
 
 class MentorScreen extends StatefulWidget {
-  const MentorScreen({Key? key}) : super(key: key);
+  const MentorScreen({super.key});
 
   @override
   State<MentorScreen> createState() => _MentorScreenState();

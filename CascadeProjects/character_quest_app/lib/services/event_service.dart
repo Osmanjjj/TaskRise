@@ -2,7 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/event.dart';
 import '../models/character.dart' as char;
 import '../models/crystal.dart';
-import '../config/supabase_config.dart';
 import 'crystal_service.dart';
 
 class EventService {

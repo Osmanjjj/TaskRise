@@ -18,12 +18,31 @@ enum TaskDifficulty {
   final String icon;
 }
 
+enum TaskCategory {
+  health('健康'),
+  learning('学習'),
+  work('仕事'),
+  hobby('趣味'),
+  other('その他');
+  
+  final String displayName;
+  const TaskCategory(this.displayName);
+  
+  static TaskCategory fromString(String value) {
+    return TaskCategory.values.firstWhere(
+      (category) => category.displayName == value,
+      orElse: () => TaskCategory.other,
+    );
+  }
+}
+
 class Task {
   final String id;
   final String title;
   final String? description;
   final TaskDifficulty difficulty;
   final TaskStatus status;
+  final TaskCategory category;
   final int experienceReward;
   final DateTime? dueDate;
   final DateTime createdAt;
@@ -40,6 +59,7 @@ class Task {
     this.description,
     this.difficulty = TaskDifficulty.normal,
     this.status = TaskStatus.pending,
+    this.category = TaskCategory.other,
     required this.experienceReward,
     this.dueDate,
     required this.createdAt,
@@ -62,6 +82,9 @@ class Task {
         (e) => e.name == json['status'],
         orElse: () => TaskStatus.pending,
       ),
+      category: json['category'] != null 
+        ? TaskCategory.fromString(json['category'])
+        : TaskCategory.other,
       experienceReward: json['experience_reward'] ?? 0,
       dueDate: json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
       createdAt: DateTime.parse(json['created_at']),
@@ -78,6 +101,7 @@ class Task {
       'description': description,
       'difficulty': difficulty.name,
       'status': status.name,
+      'category': category.displayName,
       'experience_reward': experienceReward,
       'due_date': dueDate?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
@@ -93,6 +117,7 @@ class Task {
     String? description,
     TaskDifficulty? difficulty,
     TaskStatus? status,
+    TaskCategory? category,
     int? experienceReward,
     DateTime? dueDate,
     DateTime? createdAt,
@@ -107,6 +132,7 @@ class Task {
       description: description ?? this.description,
       difficulty: difficulty ?? this.difficulty,
       status: status ?? this.status,
+      category: category ?? this.category,
       experienceReward: experienceReward ?? this.experienceReward,
       dueDate: dueDate ?? this.dueDate,
       createdAt: createdAt ?? this.createdAt,

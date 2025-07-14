@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 
 class CrystalInventoryWidget extends StatelessWidget {
-  const CrystalInventoryWidget({Key? key}) : super(key: key);
+  const CrystalInventoryWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

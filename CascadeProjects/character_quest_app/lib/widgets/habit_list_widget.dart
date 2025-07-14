@@ -5,7 +5,7 @@ import '../providers/character_provider.dart';
 import '../models/task.dart';
 
 class HabitListWidget extends StatelessWidget {
-  const HabitListWidget({Key? key}) : super(key: key);
+  const HabitListWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -70,14 +70,23 @@ class HabitListWidget extends StatelessWidget {
     // TODO: Get actual character ID
     const characterId = 'sample-character-id';
     
+    // Find the habit to get its experience reward
+    final habit = gameProvider.habits.firstWhere((h) => h.id == habitId);
+    final experienceGain = habit.experienceReward;
+    final battlePointsGain = habit.difficulty.staminaCost * 2; // Battle points based on difficulty
+    
     final success = await gameProvider.completeHabit(characterId, habitId);
     
     if (success) {
-      // Show success animation/dialog
-      _showCompletionDialog(context);
+      // Update character stats with experience and battle points
+      characterProvider.updateCharacterStats(
+        experienceGain: experienceGain,
+        battlePointsGain: battlePointsGain,
+        staminaGain: -habit.difficulty.staminaCost, // Consume stamina
+      );
       
-      // Update character stats if needed
-      // This would be handled by the service integration
+      // Show success animation/dialog with rewards
+      _showCompletionDialog(context, experienceGain, battlePointsGain);
     } else {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -89,7 +98,7 @@ class HabitListWidget extends StatelessWidget {
     }
   }
 
-  void _showCompletionDialog(BuildContext context) {
+  void _showCompletionDialog(BuildContext context, int experienceGain, int battlePointsGain) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -100,7 +109,44 @@ class HabitListWidget extends StatelessWidget {
             Text('習慣完了！'),
           ],
         ),
-        content: const Text('経験値とバトルポイントを獲得しました！'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('おめでとうございます！'),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber, size: 32),
+                    const SizedBox(height: 4),
+                    Text(
+                      '+$experienceGain EXP',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  children: [
+                    Icon(Icons.whatshot, color: Colors.purple, size: 32),
+                    const SizedBox(height: 4),
+                    Text(
+                      '+$battlePointsGain BP',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -118,11 +164,11 @@ class HabitTile extends StatelessWidget {
   final VoidCallback onComplete;
 
   const HabitTile({
-    Key? key,
+    super.key,
     required this.habit,
     required this.canComplete,
     required this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

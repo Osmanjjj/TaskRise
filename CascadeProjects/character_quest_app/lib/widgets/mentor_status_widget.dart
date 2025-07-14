@@ -4,7 +4,7 @@ import '../providers/character_provider.dart';
 import '../models/mentor.dart';
 
 class MentorStatusWidget extends StatelessWidget {
-  const MentorStatusWidget({Key? key}) : super(key: key);
+  const MentorStatusWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

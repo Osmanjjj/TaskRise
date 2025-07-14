@@ -38,7 +38,7 @@ class SocialService {
       final requestData = {
         'sender_id': user.id,
         'receiver_id': targetUserId,
-        'request_type': RequestType.friend.name,
+        'request_type': RequestType.friendRequest.name,
         'status': 'pending',
         'message': message,
         'created_at': DateTime.now().toIso8601String(),
@@ -89,13 +89,13 @@ class SocialService {
       final friendshipData = [
         {
           'user_id': user.id,
-          'friend_id': friendRequest.senderId,
+          'friend_id': friendRequest.fromUserId,
           'status': FriendshipStatus.accepted.name,
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         },
         {
-          'user_id': friendRequest.senderId,
+          'user_id': friendRequest.fromUserId,
           'friend_id': user.id,
           'status': FriendshipStatus.accepted.name,
           'created_at': DateTime.now().toIso8601String(),
@@ -354,15 +354,12 @@ class SocialService {
 
       // For now, set other stats to 0 (can be implemented later)
       final stats = UserSocialStats(
-        id: '${user.id}_social_stats',
         userId: user.id,
-        friendsCount: friendsCount,
+        totalFriends: friendsCount,
         supportMessagesSent: sentMessagesCount,
         supportMessagesReceived: receivedMessagesCount,
-        mentorsCount: 0, // TODO: Implement mentor system
-        menteesCount: 0, // TODO: Implement mentor system
-        likesGiven: 0, // TODO: Implement like system
-        likesReceived: 0, // TODO: Implement like system
+        helpfulVotes: 0, // TODO: Implement like system
+        mentorshipCount: 0, // TODO: Implement mentor system
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -393,13 +390,20 @@ class SocialService {
           .or('username.ilike.%$query%,display_name.ilike.%$query%')
           .limit(20);
 
-      if (friendIds.isNotEmpty) {
-        searchQuery = searchQuery.not('id', 'in', friendIds);
+      // Filter out existing friends and current user
+      final excludeIds = [...friendIds, user.id];
+      if (excludeIds.isNotEmpty) {
+        // Use a simple approach - filter in Dart instead of complex SQL
+        final allResults = await searchQuery;
+        final filteredResults = (allResults as List<Map<String, dynamic>>)
+            .where((result) => !excludeIds.contains(result['id']))
+            .toList();
+        return filteredResults;
       }
 
       final response = await searchQuery;
 
-      return (response as List).cast<Map<String, dynamic>>();
+      return response as List<Map<String, dynamic>>;
     } catch (e) {
       print('Error searching users for friends: $e');
       return [];
@@ -454,10 +458,8 @@ class SocialService {
       // Filter friends who were active in the last 15 minutes
       final recentThreshold = DateTime.now().subtract(const Duration(minutes: 15));
       
-      return friends.where((friend) {
-        return friend.friendLastActive != null &&
-               friend.friendLastActive!.isAfter(recentThreshold);
-      }).toList();
+      // For now, return all active friends since we don't track last active time
+      return friends.where((friend) => friend.isActive).toList();
     } catch (e) {
       print('Error getting online friends: $e');
       return [];
@@ -468,7 +470,7 @@ class SocialService {
   Future<SupportMessage?> sendHabitEncouragement(String friendId, String habitName) async {
     return sendSupportMessage(
       receiverId: friendId,
-      type: SupportType.encouragement,
+      type: SupportType.motivation,
       message: '「$habitName」の習慣、頑張ってるね！応援してるよ！',
     );
   }
@@ -477,7 +479,7 @@ class SocialService {
   Future<SupportMessage?> sendCongratulations(String friendId, String achievement) async {
     return sendSupportMessage(
       receiverId: friendId,
-      type: SupportType.congratulations,
+      type: SupportType.celebration,
       message: '$achievement 達成おめでとう！素晴らしいです！',
     );
   }
@@ -520,10 +522,14 @@ class SocialService {
     return _supabase
         .from('friendships')
         .stream(primaryKey: ['id'])
-        .eq('user_id', user.id)
-        .eq('status', 'accepted')
-        .order('updated_at', ascending: false)
-        .map((data) => data.map((json) => Friendship.fromJson(json)).toList());
+        .map((data) {
+          // Filter and sort in Dart since stream doesn't support complex queries
+          final filtered = data
+              .where((json) => json['user_id'] == user.id && json['status'] == 'accepted')
+              .toList();
+          filtered.sort((a, b) => DateTime.parse(b['updated_at']).compareTo(DateTime.parse(a['updated_at'])));
+          return filtered.map((json) => Friendship.fromJson(json)).toList();
+        });
   }
 
   // Stream real-time friend requests
@@ -534,10 +540,14 @@ class SocialService {
     return _supabase
         .from('friend_requests')
         .stream(primaryKey: ['id'])
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending')
-        .order('created_at', ascending: false)
-        .map((data) => data.map((json) => FriendRequest.fromJson(json)).toList());
+        .map((data) {
+          // Filter and sort in Dart
+          final filtered = data
+              .where((json) => json['receiver_id'] == user.id && json['status'] == 'pending')
+              .toList();
+          filtered.sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])));
+          return filtered.map((json) => FriendRequest.fromJson(json)).toList();
+        });
   }
 
   // Stream real-time support messages

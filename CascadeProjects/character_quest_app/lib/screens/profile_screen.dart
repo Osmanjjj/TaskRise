@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/character_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/character_stats_card.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -17,13 +18,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('プロフィール'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            onPressed: () => _showSettingsDialog(context),
-            icon: const Icon(Icons.settings),
-            tooltip: '設定',
-          ),
-        ],
       ),
       body: Consumer<CharacterProvider>(
         builder: (context, characterProvider, child) {
@@ -57,10 +51,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   
                   // Activity history
                   _buildActivityHistorySection(),
-                  const SizedBox(height: 24),
-                  
-                  // Settings and actions
-                  _buildSettingsSection(),
                 ],
               ),
             ),
@@ -414,62 +404,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '設定とサポート',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.notifications),
-                title: const Text('通知設定'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showNotificationSettings(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.lock),
-                title: const Text('プライバシー設定'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showPrivacySettings(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.help),
-                title: const Text('ヘルプ・サポート'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showHelpSupport(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.info),
-                title: const Text('アプリについて'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showAppInfo(context),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(Icons.logout, color: Colors.red[600]),
-                title: Text(
-                  'ログアウト',
-                  style: TextStyle(color: Colors.red[600]),
-                ),
-                onTap: () => _showLogoutDialog(context),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   int _calculateStreakDays() {
     // TODO: Calculate actual streak from data
@@ -497,16 +431,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ログアウト'),
+        content: const Text('本当にログアウトしますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('ログアウト'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.signOut();
+      
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
+      }
+    }
+  }
+
   void _showSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('設定'),
-        content: const Text('設定機能は開発中です。'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('通知設定'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showNotificationSettings(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip),
+              title: const Text('プライバシー設定'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showPrivacySettings(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help),
+              title: const Text('ヘルプ'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showHelpSupport(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('ログアウト', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.of(context).pop();
+                _handleLogout(context);
+              },
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: const Text('閉じる'),
           ),
         ],
       ),

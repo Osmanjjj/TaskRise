@@ -1,5 +1,4 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'event.dart';
 
 part 'raid.g.dart';
 

@@ -3,7 +3,6 @@ import '../models/habit_completion.dart';
 import '../models/crystal.dart';
 import '../models/character.dart';
 import '../models/daily_stats.dart';
-import '../config/supabase_config.dart';
 import 'crystal_service.dart';
 import 'mentor_service.dart';
 

@@ -3,7 +3,6 @@ import '../models/raid.dart';
 import '../models/character.dart';
 import '../models/crystal.dart';
 import 'crystal_service.dart';
-import '../config/supabase_config.dart';
 
 class RaidService {
   final SupabaseClient _supabase = Supabase.instance.client;

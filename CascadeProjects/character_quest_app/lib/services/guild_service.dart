@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/guild.dart';
 import '../models/character.dart';
-import '../config/supabase_config.dart';
 
 class GuildService {
   final SupabaseClient _supabase = Supabase.instance.client;

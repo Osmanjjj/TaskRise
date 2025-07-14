@@ -4,7 +4,7 @@ import '../providers/game_provider.dart';
 import '../models/raid.dart';
 
 class RaidBossWidget extends StatelessWidget {
-  const RaidBossWidget({Key? key}) : super(key: key);
+  const RaidBossWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

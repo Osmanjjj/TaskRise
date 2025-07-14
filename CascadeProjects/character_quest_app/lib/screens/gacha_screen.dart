@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/character_provider.dart';
 import '../widgets/crystal_inventory_widget.dart';
 
 class GachaScreen extends StatefulWidget {
-  const GachaScreen({Key? key}) : super(key: key);
+  const GachaScreen({super.key});
 
   @override
   State<GachaScreen> createState() => _GachaScreenState();

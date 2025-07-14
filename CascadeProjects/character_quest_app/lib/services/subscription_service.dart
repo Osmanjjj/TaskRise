@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/subscription.dart';
-import '../config/supabase_config.dart';
 
 class SubscriptionService {
   final SupabaseClient _supabase = Supabase.instance.client;

@@ -44,7 +44,7 @@ class TaskCard extends StatelessWidget {
 
     return Card(
       elevation: isCompleted ? 1 : 3,
-      color: isCompleted ? colorScheme.surfaceVariant.withValues(alpha: 0.5) : null,
+      color: isCompleted ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

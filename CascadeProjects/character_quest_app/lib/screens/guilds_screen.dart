@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/character_provider.dart';
 
 class GuildsScreen extends StatefulWidget {
-  const GuildsScreen({Key? key}) : super(key: key);
+  const GuildsScreen({super.key});
 
   @override
   State<GuildsScreen> createState() => _GuildsScreenState();
@@ -68,14 +68,9 @@ class _GuildsScreenState extends State<GuildsScreen> with TickerProviderStateMix
   Widget _buildMyGuildTab() {
     return Consumer<CharacterProvider>(
       builder: (context, characterProvider, child) {
-        // Mock guild membership status
-        final hasGuild = false; // TODO: Get from provider
-        
-        if (!hasGuild) {
-          return _buildNoGuildState();
-        }
-        
-        return _buildGuildDetailsView();
+        // TODO: Get guild membership status from provider
+        // For now, always show no guild state
+        return _buildNoGuildState();
       },
     );
   }
@@ -212,21 +207,22 @@ class _GuildsScreenState extends State<GuildsScreen> with TickerProviderStateMix
     );
   }
 
-  Widget _buildGuildDetailsView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildGuildHeader(),
-          const SizedBox(height: 24),
-          _buildGuildQuests(),
-          const SizedBox(height: 24),
-          _buildGuildMembers(),
-        ],
-      ),
-    );
-  }
+  // TODO: Implement when guild membership is available
+  // Widget _buildGuildDetailsView() {
+  //   return SingleChildScrollView(
+  //     padding: const EdgeInsets.all(16.0),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         _buildGuildHeader(),
+  //         const SizedBox(height: 24),
+  //         _buildGuildQuests(),
+  //         const SizedBox(height: 24),
+  //         _buildGuildMembers(),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildGuildHeader() {
     return Card(

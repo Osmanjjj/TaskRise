@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'dart:math';
 import '../models/character.dart';
 import '../models/subscription.dart';
 import '../models/mentor.dart' as mentor;
 import '../services/services.dart';
-import '../services/subscription_service.dart';
-import '../services/mentor_service.dart';
+import '../services/character_service.dart';
 
 class CharacterProvider extends ChangeNotifier {
   Character? _character;
@@ -18,6 +18,7 @@ class CharacterProvider extends ChangeNotifier {
   // Services
   final SubscriptionService _subscriptionService = SubscriptionService();
   final MentorService _mentorService = MentorService();
+  final CharacterService _characterService = CharacterService();
 
   // Getters
   Character? get character => _character;
@@ -39,9 +40,24 @@ class CharacterProvider extends ChangeNotifier {
   bool get hasMentor => _character?.mentorId != null;
 
   // Experience and level info
-  int get experienceForCurrentLevel => _character?.experienceForCurrentLevel ?? 0;
-  int get experienceForNextLevel => _character?.experienceForNextLevel ?? 0;
-  double get levelProgress => _character?.levelProgress ?? 0.0;
+  int get experienceForCurrentLevel {
+    if (_character == null) return 0;
+    final currentLevelExp = (_character!.level - 1) * (_character!.level - 1) * 100;
+    return _character!.experience - currentLevelExp;
+  }
+  
+  int get experienceForNextLevel {
+    if (_character == null) return 100;
+    return _character!.level * _character!.level * 100;
+  }
+  
+  double get levelProgress {
+    if (_character == null) return 0.0;
+    final currentLevelExp = experienceForCurrentLevel;
+    final nextLevelExp = experienceForNextLevel;
+    if (nextLevelExp == 0) return 1.0;
+    return (currentLevelExp / nextLevelExp).clamp(0.0, 1.0);
+  }
   
   // Resources
   int get battlePoints => _character?.battlePoints ?? 0;
@@ -49,6 +65,29 @@ class CharacterProvider extends ChangeNotifier {
   int get maxStamina => _character?.maxStamina ?? 100;
   double get staminaPercentage => _character?.staminaPercentage ?? 0.0;
   String get rankDisplay => _character?.rank.displayName ?? 'Novice';
+
+  /// Initialize character data by user ID
+  Future<void> initializeCharacterByUserId(String userId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // First load character by user ID
+      _character = await _characterService.getUserCharacter(userId);
+      
+      if (_character != null) {
+        // Load subscriptions and mentorships in parallel
+        await Future.wait([
+          _loadSubscriptions(_character!.id),
+          _loadMentorships(_character!.id),
+        ]);
+      }
+    } catch (e) {
+      _setError('Failed to initialize character: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
 
   /// Initialize character data
   Future<void> initializeCharacter(String characterId) async {
@@ -71,24 +110,32 @@ class CharacterProvider extends ChangeNotifier {
 
   /// Load character basic data
   Future<void> _loadCharacterData(String characterId) async {
-    // This would typically come from a character service
-    // For now, we'll create a placeholder
-    _character = Character(
-      id: characterId,
-      name: 'Player',
-      level: 1,
-      experience: 0,
-      health: 100,
-      attack: 10,
-      defense: 5,
-      battlePoints: 0,
-      stamina: 100,
-      maxStamina: 100,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      lastActivityDate: DateTime.now(),
-    );
-    notifyListeners();
+    try {
+      // Get character by ID
+      final response = await _characterService.getCharacterById(characterId);
+      if (response != null) {
+        _character = response;
+        notifyListeners();
+      }
+    } catch (e) {
+      // Fallback to placeholder if needed
+      _character = Character(
+        id: characterId,
+        name: 'Player',
+        level: 1,
+        experience: 0,
+        health: 100,
+        attack: 10,
+        defense: 5,
+        battlePoints: 0,
+        stamina: 100,
+        maxStamina: 100,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        lastActivityDate: DateTime.now(),
+      );
+      notifyListeners();
+    }
   }
 
   /// Load active subscriptions
@@ -233,15 +280,58 @@ class CharacterProvider extends ChangeNotifier {
   }) {
     if (_character == null) return;
 
+    final oldLevel = _character!.level;
+    final newExperience = experienceGain != null ? _character!.experience + experienceGain : _character!.experience;
+    final newLevel = _calculateLevelFromExperience(newExperience);
+    
+    // Calculate stat increases from level up
+    int healthIncrease = 0;
+    int attackIncrease = 0;
+    int defenseIncrease = 0;
+    int maxStaminaIncrease = 0;
+    
+    if (newLevel > oldLevel) {
+      final levelDifference = newLevel - oldLevel;
+      healthIncrease = levelDifference * 10; // +10 HP per level
+      attackIncrease = levelDifference * 2;  // +2 ATK per level
+      defenseIncrease = levelDifference * 1; // +1 DEF per level
+      maxStaminaIncrease = levelDifference * 5; // +5 max stamina per level
+    }
+
     _character = _character!.copyWith(
-      experience: experienceGain != null ? _character!.experience + experienceGain : null,
+      level: newLevel,
+      experience: newExperience,
+      health: _character!.health + healthIncrease,
+      attack: _character!.attack + attackIncrease,
+      defense: _character!.defense + defenseIncrease,
+      maxStamina: _character!.maxStamina + maxStaminaIncrease,
       battlePoints: battlePointsGain != null ? _character!.battlePoints + battlePointsGain : null,
       stamina: staminaGain != null 
-          ? (_character!.stamina + staminaGain).clamp(0, _character!.maxStamina)
+          ? (_character!.stamina + staminaGain).clamp(0, _character!.maxStamina + maxStaminaIncrease)
           : null,
       lastActivityDate: DateTime.now(),
     );
+    
+    // Show level up notification if leveled up
+    if (newLevel > oldLevel) {
+      _showLevelUpNotification?.call(oldLevel, newLevel);
+    }
+    
     notifyListeners();
+  }
+  
+  // Callback for level up notifications
+  void Function(int oldLevel, int newLevel)? _showLevelUpNotification;
+  
+  void setLevelUpCallback(void Function(int oldLevel, int newLevel)? callback) {
+    _showLevelUpNotification = callback;
+  }
+  
+  int _calculateLevelFromExperience(int experience) {
+    // Simple level calculation: level = sqrt(experience / 100) + 1
+    // This means level 2 needs 100 exp, level 3 needs 400 exp, level 4 needs 900 exp, etc.
+    if (experience < 100) return 1;
+    return sqrt(experience / 100).floor() + 1;
   }
 
   /// Refresh all character data

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/character_provider.dart';
 
 class CharacterStatsCard extends StatelessWidget {
-  const CharacterStatsCard({Key? key}) : super(key: key);
+  const CharacterStatsCard({super.key});
 
   @override
   Widget build(BuildContext context) {

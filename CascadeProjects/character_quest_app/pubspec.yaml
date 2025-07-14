@@ -32,7 +32,7 @@ dependencies:
     sdk: flutter
   
   # Supabase for backend
-  supabase_flutter: ^2.0.0
+  supabase_flutter: ^2.9.1
   
   # UI and state management
   provider: ^6.1.2

@@ -4,7 +4,7 @@ import '../providers/providers.dart';
 import '../widgets/widgets.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -12,12 +12,34 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
+  void initState() {
+    super.initState();
+    // Initialize character when dashboard loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  Future<void> _initializeData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final characterProvider = Provider.of<CharacterProvider>(context, listen: false);
+    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    
+    if (authProvider.user != null) {
+      await characterProvider.initializeCharacterByUserId(authProvider.user!.id);
+      await gameProvider.loadData();
+    }
+  }
+
+
+  @override
   Widget build(BuildContext context) {
     return Consumer2<CharacterProvider, GameProvider>(
       builder: (context, characterProvider, gameProvider, child) {
         final character = characterProvider.character;
         
         return Scaffold(
+          drawer: _buildDrawer(context),
           appBar: AppBar(
             title: Row(
               children: [
@@ -84,6 +106,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final characterProvider = Provider.of<CharacterProvider>(context);
+    final character = characterProvider.character;
+    
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    character?.name.substring(0, 1).toUpperCase() ?? 'P',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  character?.name ?? 'プレイヤー',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  authProvider.user?.email ?? '',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard),
+            title: const Text('ダッシュボード'),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('プロフィール'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/profile');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.book),
+            title: const Text('習慣'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/habits');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.event),
+            title: const Text('イベント'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/events');
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('設定'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/settings');
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

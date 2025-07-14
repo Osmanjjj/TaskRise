@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/crystal.dart';
 import '../models/collectible.dart';
-import '../config/supabase_config.dart';
 
 class CrystalService {
   final SupabaseClient _supabase = Supabase.instance.client;

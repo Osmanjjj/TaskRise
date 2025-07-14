@@ -163,7 +163,7 @@ class GachaService {
         // Guarantee SR+ on last pull if no SR+ pulled yet
         if (i == count - 1 && !guaranteedSRUsed) {
           final srItems = items.where((item) => 
-              item.rarity == Rarity.sr || item.rarity == Rarity.ssr).toList();
+              item.rarity == Rarity.epic || item.rarity == Rarity.legendary || item.rarity == Rarity.mythic).toList();
           if (srItems.isNotEmpty) {
             pulledItem = _simulateGachaPull(srItems, forcePityPull: true);
           } else {
@@ -171,7 +171,7 @@ class GachaService {
           }
         } else {
           pulledItem = _simulateGachaPull(items);
-          if (pulledItem.rarity == Rarity.sr || pulledItem.rarity == Rarity.ssr) {
+          if (pulledItem.rarity == Rarity.epic || pulledItem.rarity == Rarity.legendary || pulledItem.rarity == Rarity.mythic) {
             guaranteedSRUsed = true;
           }
         }
@@ -287,7 +287,7 @@ class GachaService {
     if (forcePityPull) {
       // Return SR+ item for pity
       final rareItems = items.where((item) => 
-          item.rarity == Rarity.sr || item.rarity == Rarity.ssr).toList();
+          item.rarity == Rarity.epic || item.rarity == Rarity.legendary || item.rarity == Rarity.mythic).toList();
       if (rareItems.isNotEmpty) {
         return rareItems[DateTime.now().millisecond % rareItems.length];
       }
@@ -306,7 +306,7 @@ class GachaService {
     // Check each rarity tier
     for (final rarity in Rarity.values.reversed) { // Start from highest rarity
       if (rarityGroups.containsKey(rarity)) {
-        cumulative += rarity.dropRate;
+        cumulative += _getDropRate(rarity);
         if (random <= cumulative) {
           final rarityItems = rarityGroups[rarity]!;
           return rarityItems[DateTime.now().microsecond % rarityItems.length];
@@ -315,8 +315,24 @@ class GachaService {
     }
 
     // Fallback to common item
-    final commonItems = rarityGroups[Rarity.r] ?? items;
+    final commonItems = rarityGroups[Rarity.common] ?? items;
     return commonItems[DateTime.now().microsecond % commonItems.length];
+  }
+
+  // Get drop rate for rarity
+  double _getDropRate(Rarity rarity) {
+    switch (rarity) {
+      case Rarity.common:
+        return 0.60; // 60%
+      case Rarity.rare:
+        return 0.30; // 30%
+      case Rarity.epic:
+        return 0.08; // 8%
+      case Rarity.legendary:
+        return 0.015; // 1.5%
+      case Rarity.mythic:
+        return 0.005; // 0.5%
+    }
   }
 
   // Add item to user inventory
@@ -331,13 +347,13 @@ class GachaService {
           // Add equipment
           await _addEquipmentToInventory(userId, item);
           break;
-        case GachaItemType.skill:
-          // Add skill or skill upgrade materials
-          await _addSkillToInventory(userId, item);
+        case GachaItemType.crystal:
+          // Add crystals to inventory
+          await _addCrystalToInventory(userId, item);
           break;
-        case GachaItemType.material:
-          // Add materials to inventory
-          await _addMaterialToInventory(userId, item);
+        case GachaItemType.consumable:
+          // Add consumables to inventory
+          await _addConsumableToInventory(userId, item);
           break;
       }
     } catch (e) {
@@ -345,16 +361,9 @@ class GachaService {
     }
   }
 
-  Future<void> _addCharacterToInventory(String userId, GachaItem item) async {
-    // Implementation depends on character collection system
-    // This is a placeholder
-    print('Adding character ${item.name} to inventory for user $userId');
-  }
 
-  Future<void> _addEquipmentToInventory(String userId, GachaItem item) async {
-    // Implementation depends on equipment system
-    print('Adding equipment ${item.name} to inventory for user $userId');
-  }
+
+
 
   Future<void> _addSkillToInventory(String userId, GachaItem item) async {
     // Implementation depends on skill system
@@ -378,20 +387,23 @@ class GachaService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // Update rarity counts
+      // Update rarity counts using rarityCount map
+      final newRarityCount = Map<String, int>.from(history.rarityCount);
+      final rarityKey = item.rarity.name;
+      newRarityCount[rarityKey] = (newRarityCount[rarityKey] ?? 0) + 1;
+      
+      updates['rarity_count'] = newRarityCount;
+      
+      // Update pity counter
       switch (item.rarity) {
-        case Rarity.ssr:
-          updates['ssr_count'] = history.ssrCount + 1;
-          updates['last_ssr_pull'] = DateTime.now().toIso8601String();
-          updates['pity_counter'] = 0; // Reset pity
+        case Rarity.common:
+        case Rarity.rare:
+          updates['pity_counter'] = (history.pityCounter) + 1;
           break;
-        case Rarity.sr:
-          updates['sr_count'] = history.srCount + 1;
-          updates['pity_counter'] = 0; // Reset pity
-          break;
-        case Rarity.r:
-          updates['r_count'] = history.rCount + 1;
-          updates['pity_counter'] = history.pityCounter + 1;
+        case Rarity.epic:
+        case Rarity.legendary:
+        case Rarity.mythic:
+          updates['pity_counter'] = 0; // Reset pity for high rarity items
           break;
       }
 
@@ -440,7 +452,7 @@ class GachaService {
       final itemsResponse = await _supabase
           .from('gacha_items')
           .select('rarity')
-          .in_('id', itemIds);
+          .inFilter('id', itemIds);
 
       final rarityCount = <String, int>{};
       for (final item in itemsResponse as List) {
@@ -457,6 +469,90 @@ class GachaService {
     } catch (e) {
       print('Error getting banner stats: $e');
       return {};
+    }
+  }
+
+  // Helper methods for adding items to inventory
+  Future<void> _addCharacterToInventory(String userId, GachaItem item) async {
+    // Add character to user's character collection
+    await _supabase.from('user_characters').insert({
+      'user_id': userId,
+      'character_id': item.id,
+      'obtained_at': DateTime.now().toIso8601String(),
+      'source': 'gacha',
+    });
+  }
+
+  Future<void> _addEquipmentToInventory(String userId, GachaItem item) async {
+    // Add equipment to user's inventory
+    await _supabase.from('user_equipment').insert({
+      'user_id': userId,
+      'equipment_id': item.id,
+      'quantity': 1,
+      'obtained_at': DateTime.now().toIso8601String(),
+      'source': 'gacha',
+    });
+  }
+
+  Future<void> _addCrystalToInventory(String userId, GachaItem item) async {
+    // Add crystals to user's crystal inventory
+    final existingCrystal = await _supabase
+        .from('user_crystals')
+        .select('quantity')
+        .eq('user_id', userId)
+        .eq('crystal_type', item.id)
+        .maybeSingle();
+
+    if (existingCrystal != null) {
+      // Update existing crystal count
+      await _supabase
+          .from('user_crystals')
+          .update({
+            'quantity': existingCrystal['quantity'] + 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('crystal_type', item.id);
+    } else {
+      // Insert new crystal entry
+      await _supabase.from('user_crystals').insert({
+        'user_id': userId,
+        'crystal_type': item.id,
+        'quantity': 1,
+        'obtained_at': DateTime.now().toIso8601String(),
+        'source': 'gacha',
+      });
+    }
+  }
+
+  Future<void> _addConsumableToInventory(String userId, GachaItem item) async {
+    // Add consumables to user's inventory
+    final existingItem = await _supabase
+        .from('user_consumables')
+        .select('quantity')
+        .eq('user_id', userId)
+        .eq('consumable_id', item.id)
+        .maybeSingle();
+
+    if (existingItem != null) {
+      // Update existing item count
+      await _supabase
+          .from('user_consumables')
+          .update({
+            'quantity': existingItem['quantity'] + 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('consumable_id', item.id);
+    } else {
+      // Insert new consumable entry
+      await _supabase.from('user_consumables').insert({
+        'user_id': userId,
+        'consumable_id': item.id,
+        'quantity': 1,
+        'obtained_at': DateTime.now().toIso8601String(),
+        'source': 'gacha',
+      });
     }
   }
 }

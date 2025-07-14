@@ -125,7 +125,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? getDifficultyColor().withValues(alpha: 0.1)
-                                : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                                : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSelected

@@ -87,39 +87,23 @@ class ApiService extends ChangeNotifier {
     try {
       final userId = currentUser!.id;
 
-      // Fetch data from multiple services concurrently
-      final results = await Future.wait([
-        _userProfileService.getUserProfile(),
-        _characterService.getUserCharacter(),
-        _habitService.getUserHabits(),
-        _habitService.getHabitsStats(),
-        _guildService.getUserGuild(),
-        _socialService.getFriends(),
-        _socialService.getUnreadSupportMessagesCount(),
-        _subscriptionService.getActiveSubscriptions(userId),
-        _gachaService.getUserGachaHistory(),
-      ]);
-
-      final userProfile = results[0];
-      final character = results[1];
-      final habits = results[2] as List;
-      final habitStats = results[3];
-      final guild = results[4];
-      final friends = results[5] as List;
-      final unreadMessages = results[6] as int;
-      final subscriptions = results[7] as List;
-      final gachaHistory = results[8];
+      // Fetch basic user data
+      final userProfile = await _userProfileService.getUserProfileById(userId);
+      final character = await _characterService.getUserCharacter(userId);
+      
+      // For now, return basic dashboard data
+      // TODO: Add more service calls as methods are implemented
 
       return UserDashboardData(
         userProfile: userProfile,
         character: character,
-        habitsCount: habits.length,
-        habitStats: habitStats,
-        guild: guild,
-        friendsCount: friends.length,
-        unreadMessagesCount: unreadMessages,
-        activeSubscriptions: subscriptions,
-        gachaHistory: gachaHistory,
+        habitsCount: 0, // TODO: Implement when habit methods are available
+        habitStats: null, // TODO: Implement when habit stats methods are available
+        guild: null, // TODO: Implement when guild methods are available
+        friendsCount: 0, // TODO: Implement when social methods are available
+        unreadMessagesCount: 0, // TODO: Implement when social methods are available
+        activeSubscriptions: [], // TODO: Implement when subscription methods are available
+        gachaHistory: null, // TODO: Implement when gacha methods are available
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
@@ -134,33 +118,19 @@ class ApiService extends ChangeNotifier {
 
     try {
       final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final results = await Future.wait([
-        _habitService.getHabitsDueToday(),
-        _characterService.getTodayExperienceGain(),
-        _socialService.getReceivedSupportMessages(),
-        _guildService.getTodayGuildActivity(),
-      ]);
+      // For now, return basic activity summary
+      // TODO: Implement when service methods are available
+      final expGain = 0;
 
-      final habitsDue = results[0] as List;
-      final expGain = results[1] as int? ?? 0;
-      final supportMessages = results[2] as List;
-      final guildActivity = results[3];
-
-      final completedHabits = habitsDue.where((h) => h.isCompletedToday).length;
-      final todaySupportMessages = supportMessages
-          .where((m) => m.createdAt.isAfter(startOfDay) && m.createdAt.isBefore(endOfDay))
-          .length;
-
+      // Return basic activity summary with default values
       return UserActivitySummary(
         date: today,
-        habitsCompleted: completedHabits,
-        totalHabits: habitsDue.length,
+        habitsCompleted: 0,
+        totalHabits: 0,
         experienceGained: expGain,
-        supportMessagesReceived: todaySupportMessages,
-        guildActivityScore: guildActivity?.activityScore ?? 0,
+        supportMessagesReceived: 0,
+        guildActivityScore: 0,
       );
     } catch (e) {
       print('Error getting today activity summary: $e');
@@ -175,59 +145,12 @@ class ApiService extends ChangeNotifier {
     try {
       final notifications = <AppNotification>[];
 
-      // Check for pending friend requests
-      final friendRequests = await _socialService.getPendingReceivedRequests();
-      for (final request in friendRequests) {
-        notifications.add(AppNotification(
-          id: 'friend_request_${request.id}',
-          type: NotificationType.friendRequest,
-          title: 'フレンド申請',
-          message: '${request.senderDisplayName}さんからフレンド申請が届いています',
-          data: {'request_id': request.id},
-          createdAt: request.createdAt,
-        ));
-      }
+      // For now, return empty notifications list
+      // TODO: Implement when service methods are available
 
-      // Check for unread support messages
-      final unreadCount = await _socialService.getUnreadSupportMessagesCount();
-      if (unreadCount > 0) {
-        notifications.add(AppNotification(
-          id: 'support_messages',
-          type: NotificationType.supportMessage,
-          title: '応援メッセージ',
-          message: '${unreadCount}件の新しい応援メッセージがあります',
-          data: {'count': unreadCount},
-          createdAt: DateTime.now(),
-        ));
-      }
+      // TODO: Add subscription expiry notifications when methods are available
 
-      // Check for expiring subscriptions
-      if (isAuthenticated) {
-        final expiring = await _subscriptionService.getExpiringSubscriptions(currentUser!.id);
-        for (final sub in expiring) {
-          notifications.add(AppNotification(
-            id: 'subscription_expiring_${sub.id}',
-            type: NotificationType.subscriptionExpiring,
-            title: 'サブスクリプション期限',
-            message: '${sub.type.displayName}が${sub.daysUntilExpiry}日後に期限切れになります',
-            data: {'subscription_id': sub.id},
-            createdAt: DateTime.now(),
-          ));
-        }
-      }
-
-      // Check for guild invitations
-      final guildInvites = await _guildService.getGuildInvitations();
-      for (final invite in guildInvites) {
-        notifications.add(AppNotification(
-          id: 'guild_invite_${invite.id}',
-          type: NotificationType.guildInvite,
-          title: 'ギルド招待',
-          message: '${invite.guildName}からの招待が届いています',
-          data: {'invite_id': invite.id},
-          createdAt: invite.createdAt,
-        ));
-      }
+      // TODO: Add guild invitation notifications when methods are available
 
       // Sort by creation date (newest first)
       notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
