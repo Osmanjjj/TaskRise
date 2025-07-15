@@ -36,16 +36,29 @@ class SupabaseService {
 
   Future<Character?> createCharacter(String name) async {
     try {
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) {
+        print('Error: No authenticated user');
+        return null;
+      }
+      
       final now = DateTime.now();
       final response = await client
           .from('characters')
           .insert({
             'name': name,
+            'user_id': currentUser.id,  // user_idを追加
             'level': 1,
             'experience': 0,
             'health': 100,
             'attack': 10,
             'defense': 5,
+            'stamina': 100,
+            'max_stamina': 100,
+            'battle_points': 0,
+            'total_crystals_earned': 0,
+            'consecutive_days': 0,
+            'last_activity_date': now.toIso8601String(),
             'created_at': now.toIso8601String(),
             'updated_at': now.toIso8601String(),
           })
@@ -103,6 +116,35 @@ class SupabaseService {
     String? characterId,
   }) async {
     try {
+      // デバッグ: 現在のユーザーとキャラクターIDを確認
+      final currentUser = client.auth.currentUser;
+      print('Debug - Current user ID: ${currentUser?.id}');
+      print('Debug - Character ID being used: $characterId');
+      
+      // キャラクターIDが渡されていない場合、現在のユーザーのキャラクターを取得
+      String? actualCharacterId = characterId;
+      if (actualCharacterId == null && currentUser != null) {
+        final characterResponse = await client
+            .from('characters')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (characterResponse != null) {
+          actualCharacterId = characterResponse['id'];
+          print('Debug - Found character ID: $actualCharacterId');
+        } else {
+          // キャラクターが存在しない場合は作成
+          print('Debug - No character found, creating new one');
+          final newCharacter = await createCharacter('プレイヤー');
+          actualCharacterId = newCharacter?.id;
+        }
+      }
+      
+      if (actualCharacterId == null) {
+        throw Exception('キャラクターIDが見つかりません');
+      }
+      
       final now = DateTime.now();
       final experienceReward = Task.getExperienceForDifficulty(difficulty);
       
@@ -113,11 +155,12 @@ class SupabaseService {
             'description': description,
             'difficulty': difficulty.name,
             'status': TaskStatus.pending.name,
+            'category': 'その他',
             'experience_reward': experienceReward,
             'due_date': dueDate?.toIso8601String(),
             'created_at': now.toIso8601String(),
             'updated_at': now.toIso8601String(),
-            'character_id': characterId,
+            'character_id': actualCharacterId,
           })
           .select()
           .single();

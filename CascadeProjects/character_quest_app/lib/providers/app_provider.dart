@@ -59,17 +59,31 @@ class AppProvider extends ChangeNotifier {
     DateTime? dueDate,
   }) async {
     _setLoading(true);
-    final task = await _supabaseService.createTask(
-      title: title,
-      description: description,
-      difficulty: difficulty,
-      dueDate: dueDate,
-      characterId: _selectedCharacter?.id,
-    );
-    if (task != null) {
-      _tasks.insert(0, task);
+    try {
+      print('AppProvider.createTask - Selected character ID: ${_selectedCharacter?.id}');
+      print('AppProvider.createTask - Selected character name: ${_selectedCharacter?.name}');
+      
+      final task = await _supabaseService.createTask(
+        title: title,
+        description: description,
+        difficulty: difficulty,
+        dueDate: dueDate,
+        characterId: _selectedCharacter?.id,
+      );
+      
+      if (task != null) {
+        _tasks.insert(0, task);
+        print('AppProvider.createTask - Task created successfully');
+      } else {
+        print('AppProvider.createTask - Task creation returned null');
+        throw Exception('タスクの作成に失敗しました');
+      }
+    } catch (e) {
+      print('AppProvider.createTask - Error: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
     }
-    _setLoading(false);
   }
 
   Future<void> completeTask(Task task) async {

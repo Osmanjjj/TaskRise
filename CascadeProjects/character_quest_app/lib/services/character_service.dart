@@ -9,10 +9,13 @@ class CharacterService {
   /// Get user's current character
   Future<Character?> getUserCharacter(String userId) async {
     try {
+      // 複数のキャラクターが存在する場合は最新のものを取得
       final response = await _supabase
           .from('characters')
           .select('*')
           .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1)
           .maybeSingle();
 
       if (response == null) return null;

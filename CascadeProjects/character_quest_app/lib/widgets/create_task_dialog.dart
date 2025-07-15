@@ -294,6 +294,8 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
 
     try {
       final provider = Provider.of<AppProvider>(context, listen: false);
+      print('CreateTaskDialog - Creating task with title: ${_titleController.text.trim()}');
+      
       await provider.createTask(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim().isEmpty
@@ -314,6 +316,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
         );
       }
     } catch (e) {
+      print('CreateTaskDialog - Error creating task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

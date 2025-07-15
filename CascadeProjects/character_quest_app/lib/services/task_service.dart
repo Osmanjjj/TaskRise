@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task.dart';
+import '../models/character.dart';
 import 'character_service.dart';
 
 class TaskService {
@@ -14,9 +15,13 @@ class TaskService {
       throw Exception('ユーザーが認証されていません');
     }
     
-    final character = await _characterService.getUserCharacter(userId);
+    var character = await _characterService.getUserCharacter(userId);
     if (character == null) {
-      throw Exception('キャラクターが見つかりません');
+      // キャラクターが存在しない場合は作成する
+      character = await _createDefaultCharacter(userId);
+      if (character == null) {
+        throw Exception('キャラクターの作成に失敗しました');
+      }
     }
     
     return character.id;
@@ -295,6 +300,44 @@ class TaskService {
   int _calculateLevel(int experience) {
     // シンプルなレベル計算式: 100経験値ごとに1レベル
     return (experience / 100).floor() + 1;
+  }
+
+  // デフォルトキャラクターを作成
+  Future<Character?> _createDefaultCharacter(String userId) async {
+    try {
+      final userData = await _supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('id', userId)
+          .maybeSingle();
+      
+      final displayName = userData?['display_name'] ?? 'プレイヤー';
+      
+      final response = await _supabase
+          .from('characters')
+          .insert({
+            'user_id': userId,
+            'name': displayName,
+            'level': 1,
+            'experience': 0,
+            'health': 100,
+            'attack': 10,
+            'defense': 10,
+            'stamina': 100,
+            'max_stamina': 100,
+            'battle_points': 0,
+            'total_crystals_earned': 0,
+            'consecutive_days': 0,
+            'last_activity_date': DateTime.now().toIso8601String(),
+          })
+          .select()
+          .single();
+      
+      return await _characterService.getUserCharacter(userId);
+    } catch (e) {
+      print('デフォルトキャラクターの作成に失敗: $e');
+      return null;
+    }
   }
 
   // 日次統計を更新
