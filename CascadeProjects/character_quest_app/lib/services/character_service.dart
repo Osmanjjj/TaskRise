@@ -122,10 +122,14 @@ class CharacterService {
 
       updates['updated_at'] = DateTime.now().toIso8601String();
 
+      // Get character ID from user ID
+      final character = await getUserCharacter(userId);
+      if (character == null) return false;
+      
       await _supabase
           .from('characters')
           .update(updates)
-          .eq('id', userId);
+          .eq('id', character.id);
 
       return true;
     } catch (e) {
@@ -144,22 +148,35 @@ class CharacterService {
         return {'success': false, 'error': 'Character not found'};
       }
 
-      int newExp = character.experience + expGain;
-      int newLevel = character.level;
-      bool leveledUp = false;
-
-      // Simple level calculation: 100 exp per level
-      while (newExp >= (newLevel * 100)) {
-        newExp -= (newLevel * 100);
-        newLevel++;
-        leveledUp = true;
+      int totalExp = character.experience + expGain;
+      int oldLevel = character.level;
+      int newLevel = (totalExp / 100).floor() + 1;
+      bool leveledUp = newLevel > oldLevel;
+      
+      // Calculate stat increases on level up
+      int attackIncrease = 0;
+      int defenseIncrease = 0;
+      int healthIncrease = 0;
+      int maxStaminaIncrease = 0;
+      
+      if (leveledUp) {
+        final levelDiff = newLevel - oldLevel;
+        attackIncrease = levelDiff * 2;  // +2 attack per level
+        defenseIncrease = levelDiff * 2;  // +2 defense per level
+        healthIncrease = levelDiff * 10;  // +10 HP per level
+        maxStaminaIncrease = levelDiff * 5;  // +5 max stamina per level
       }
 
-      // Update character
+      // Update character with new stats
       final success = await updateCharacterStats(
         userId,
         level: newLevel,
-        experience: newExp,
+        experience: totalExp,
+        attack: character.attack + attackIncrease,
+        defense: character.defense + defenseIncrease,
+        health: character.health + healthIncrease,
+        maxStamina: character.maxStamina + maxStaminaIncrease,
+        stamina: character.stamina + maxStaminaIncrease, // Also restore stamina on level up
       );
 
       if (!success) {
@@ -169,9 +186,16 @@ class CharacterService {
       return {
         'success': true,
         'leveledUp': leveledUp,
+        'oldLevel': oldLevel,
         'newLevel': newLevel,
-        'newExperience': newExp,
+        'totalExperience': totalExp,
         'expGained': expGain,
+        'statIncreases': leveledUp ? {
+          'attack': attackIncrease,
+          'defense': defenseIncrease,
+          'health': healthIncrease,
+          'maxStamina': maxStaminaIncrease,
+        } : null,
       };
     } catch (e) {
       if (kDebugMode) {

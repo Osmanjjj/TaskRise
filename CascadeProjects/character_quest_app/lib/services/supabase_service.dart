@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/character.dart';
 import '../models/task.dart';
+import 'task_service.dart';
+import 'character_service.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
@@ -214,6 +216,65 @@ class SupabaseService {
     } catch (e) {
       print('Error completing task: $e');
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> completeTaskWithRewards(Task task, Character character) async {
+    try {
+      // TaskServiceを使用してタスクを完了（ボーナスEXPなどの計算も含む）
+      final taskService = TaskService();
+      final completedTask = await taskService.completeTask(task.id);
+      
+      // CharacterServiceを使用して最新のキャラクター情報を取得
+      final characterService = CharacterService();
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
+      
+      // 少し待機してデータベースの更新を確実にする
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final updatedCharacter = await characterService.getUserCharacter(userId);
+      
+      // レベルアップチェック
+      final oldLevel = character.level;
+      final newLevel = updatedCharacter?.level ?? character.level;
+      final leveledUp = newLevel > oldLevel;
+      
+      // 実際に獲得したEXPを計算（ボーナス込み）
+      final actualExpGained = (updatedCharacter?.experience ?? character.experience) - 
+                             character.experience + 
+                             (leveledUp ? (oldLevel * 100) : 0);
+      
+      return {
+        'success': true,
+        'completedTask': completedTask,
+        'updatedCharacter': updatedCharacter,
+        'expGained': actualExpGained > 0 ? actualExpGained : task.experienceReward,
+        'leveledUp': leveledUp,
+        'oldLevel': oldLevel,
+        'newLevel': newLevel,
+      };
+    } catch (e) {
+      print('Error completing task with rewards: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Character?> getCharacterByUserId(String userId) async {
+    try {
+      final response = await client
+          .from('characters')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Character.fromJson(response);
+    } catch (e) {
+      print('Error getting character by user ID: $e');
+      return null;
     }
   }
 

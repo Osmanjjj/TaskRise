@@ -133,7 +133,7 @@ class CharacterCard extends StatelessWidget {
                         style: theme.textTheme.labelMedium,
                       ),
                       Text(
-                        '${character.experience} / ${character.level * 100}',
+                        '${character.experienceInCurrentLevel} / 100',
                         style: theme.textTheme.labelSmall,
                       ),
                     ],
@@ -142,7 +142,7 @@ class CharacterCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: (character.experience % 100) / 100,
+                      value: character.experienceProgress,
                       backgroundColor: colorScheme.surfaceContainerHighest,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         colorScheme.primary,

@@ -132,8 +132,20 @@ class TaskService {
           .select()
           .single();
 
+      // 習慣タスクの場合はボーナスEXPを計算
+      int totalExp = task.experienceReward;
+      if (task.category == TaskCategory.health || task.category == TaskCategory.learning) {
+        // 習慣タスクにはボーナスEXPを追加（基本報酬の50%）
+        final bonusExp = (task.experienceReward * 0.5).round();
+        totalExp += bonusExp;
+        
+        // 連続達成チェック（過去7日間の同じカテゴリの完了タスク数）
+        final streakBonus = await _calculateStreakBonus(task.characterId!, task.category);
+        totalExp += streakBonus;
+      }
+
       // キャラクターの経験値を更新
-      await _updateCharacterExperience(task.experienceReward);
+      await _updateCharacterExperience(totalExp);
 
       return Task.fromJson(response);
     } catch (e) {
@@ -259,15 +271,16 @@ class TaskService {
 
   // 経験値報酬を計算
   int _calculateExperienceReward(String difficulty) {
+    // Task.getExperienceForDifficultyの値に統一
     switch (difficulty.toLowerCase()) {
       case 'easy':
         return 10;
       case 'normal':
-        return 20;
+        return 25;
       case 'hard':
-        return 40;
+        return 50;
       default:
-        return 20;
+        return 25;
     }
   }
 
@@ -275,24 +288,37 @@ class TaskService {
   Future<void> _updateCharacterExperience(int experienceGained) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        print('Error: No authenticated user');
+        return;
+      }
+      print('Updating experience for user: $userId');
 
       final character = await _characterService.getUserCharacter(userId);
-      if (character == null) return;
+      if (character == null) {
+        print('Error: No character found for user: $userId');
+        return;
+      }
+      print('Character found: ${character.name} (ID: ${character.id})');
 
-      final newExperience = character.experience + experienceGained;
-      final newLevel = _calculateLevel(newExperience);
-
-      await _characterService.updateCharacterStats(
-        userId,
-        experience: newExperience,
-        level: newLevel,
-      );
-
-      // 日次統計も更新
-      await _updateDailyStats(character.id, experienceGained);
+      // CharacterServiceのaddExperienceメソッドを使用してレベルアップ処理も含めて実行
+      final result = await _characterService.addExperience(userId, experienceGained);
+      print('Experience update result: $result');
+      
+      if (result['success'] == true) {
+        // 日次統計も更新
+        await _updateDailyStats(character.id, experienceGained);
+        
+        // レベルアップした場合の処理（将来的にUI通知などを追加可能）
+        if (result['leveledUp'] == true) {
+          print('レベルアップ！ Lv.${result['oldLevel']} → Lv.${result['newLevel']}');
+        }
+      } else {
+        print('Experience update failed: ${result['error']}');
+      }
     } catch (e) {
       print('キャラクター経験値の更新に失敗: $e');
+      print('Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -300,6 +326,39 @@ class TaskService {
   int _calculateLevel(int experience) {
     // シンプルなレベル計算式: 100経験値ごとに1レベル
     return (experience / 100).floor() + 1;
+  }
+
+  // 連続達成ボーナスを計算
+  Future<int> _calculateStreakBonus(String characterId, TaskCategory category) async {
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      
+      // 過去7日間の同じカテゴリの完了タスク数を取得
+      final response = await _supabase
+          .from('tasks')
+          .select()
+          .eq('character_id', characterId)
+          .eq('category', category.displayName)
+          .eq('status', 'completed')
+          .gte('completed_at', sevenDaysAgo.toIso8601String())
+          .order('completed_at', ascending: false);
+      
+      final completedTasks = (response as List).length;
+      
+      // 連続達成ボーナス: 3日連続で5EXP、5日連続で10EXP、7日連続で20EXP
+      if (completedTasks >= 7) {
+        return 20;
+      } else if (completedTasks >= 5) {
+        return 10;
+      } else if (completedTasks >= 3) {
+        return 5;
+      }
+      
+      return 0;
+    } catch (e) {
+      print('連続達成ボーナスの計算に失敗: $e');
+      return 0;
+    }
   }
 
   // デフォルトキャラクターを作成

@@ -86,29 +86,55 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> completeTask(Task task) async {
-    if (_selectedCharacter == null) return;
+  Future<Map<String, dynamic>> completeTask(Task task) async {
+    if (_selectedCharacter == null) return {'success': false};
     
     _setLoading(true);
-    final success = await _supabaseService.completeTask(task, _selectedCharacter!);
-    if (success) {
+    final result = await _supabaseService.completeTaskWithRewards(task, _selectedCharacter!);
+    
+    if (result['success'] == true) {
       // Update local state
       final taskIndex = _tasks.indexWhere((t) => t.id == task.id);
       if (taskIndex != -1) {
         _tasks[taskIndex] = task.copyWith(status: TaskStatus.completed);
       }
       
-      // Update character experience
-      final characterIndex = _characters.indexWhere((c) => c.id == _selectedCharacter!.id);
-      if (characterIndex != -1) {
-        final updatedCharacter = _selectedCharacter!.copyWith(
-          experience: _selectedCharacter!.experience + task.experienceReward,
-        );
-        _characters[characterIndex] = updatedCharacter;
-        _selectedCharacter = updatedCharacter;
+      // Update character with new stats
+      if (result['updatedCharacter'] != null) {
+        final updatedCharacter = result['updatedCharacter'] as Character;
+        final characterIndex = _characters.indexWhere((c) => c.id == _selectedCharacter!.id);
+        if (characterIndex != -1) {
+          _characters[characterIndex] = updatedCharacter;
+          _selectedCharacter = updatedCharacter;
+        }
+        
+        // UIを強制的に更新
+        notifyListeners();
+      } else {
+        // キャラクター情報を再取得
+        await refreshSelectedCharacter();
       }
     }
+    
     _setLoading(false);
+    return result;
+  }
+
+  Future<void> refreshSelectedCharacter() async {
+    if (_selectedCharacter == null) return;
+    
+    final userId = _supabaseService.client.auth.currentUser?.id;
+    if (userId == null) return;
+    
+    final updatedCharacter = await _supabaseService.getCharacterByUserId(userId);
+    if (updatedCharacter != null) {
+      final characterIndex = _characters.indexWhere((c) => c.id == updatedCharacter.id);
+      if (characterIndex != -1) {
+        _characters[characterIndex] = updatedCharacter;
+        _selectedCharacter = updatedCharacter;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> deleteTask(Task task) async {

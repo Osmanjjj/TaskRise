@@ -42,21 +42,26 @@ class CharacterProvider extends ChangeNotifier {
   // Experience and level info
   int get experienceForCurrentLevel {
     if (_character == null) return 0;
-    final currentLevelExp = (_character!.level - 1) * (_character!.level - 1) * 100;
-    return _character!.experience - currentLevelExp;
+    // 現在のレベルで必要な最小経験値を計算
+    final currentLevelMinExp = (_character!.level - 1) * (_character!.level - 1) * 100;
+    // 現在の経験値から現在レベルの最小経験値を引いて、現在レベル内での進行度を取得
+    return (_character!.experience - currentLevelMinExp).clamp(0, _character!.experience);
   }
   
   int get experienceForNextLevel {
     if (_character == null) return 100;
-    return _character!.level * _character!.level * 100;
+    // 次のレベルまでに必要な経験値（現在レベル内での必要経験値）
+    final currentLevelMinExp = (_character!.level - 1) * (_character!.level - 1) * 100;
+    final nextLevelMinExp = _character!.level * _character!.level * 100;
+    return nextLevelMinExp - currentLevelMinExp;
   }
   
   double get levelProgress {
     if (_character == null) return 0.0;
     final currentLevelExp = experienceForCurrentLevel;
     final nextLevelExp = experienceForNextLevel;
-    if (nextLevelExp == 0) return 1.0;
-    return (currentLevelExp / nextLevelExp).clamp(0.0, 1.0);
+    if (nextLevelExp <= 0) return 1.0;
+    return (currentLevelExp.toDouble() / nextLevelExp.toDouble()).clamp(0.0, 1.0);
   }
   
   // Resources
@@ -328,10 +333,10 @@ class CharacterProvider extends ChangeNotifier {
   }
   
   int _calculateLevelFromExperience(int experience) {
-    // Simple level calculation: level = sqrt(experience / 100) + 1
-    // This means level 2 needs 100 exp, level 3 needs 400 exp, level 4 needs 900 exp, etc.
-    if (experience < 100) return 1;
-    return sqrt(experience / 100).floor() + 1;
+    // 経験値からレベルを計算: level = sqrt(experience / 100) + 1
+    // これにより、レベル1=0exp, レベル2=100exp, レベル3=400exp, レベル4=900exp, レベル5=1600exp となる
+    if (experience < 0) return 1;
+    return (sqrt(experience / 100)).floor() + 1;
   }
 
   /// Refresh all character data

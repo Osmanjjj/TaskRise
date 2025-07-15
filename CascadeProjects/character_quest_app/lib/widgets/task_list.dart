@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/app_provider.dart';
+import '../providers/character_provider.dart';
 import '../widgets/task_card.dart';
 
 class TaskList extends StatelessWidget {
@@ -133,15 +134,82 @@ class TaskList extends StatelessWidget {
   }
 
   void _completeTask(BuildContext context, Task task) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    provider.completeTask(task).then((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Task completed! +${task.experienceReward} XP'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final characterProvider = Provider.of<CharacterProvider>(context, listen: false);
+    
+    // レベルアップコールバックを設定
+    characterProvider.setLevelUpCallback((oldLevel, newLevel) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          title: Row(
+            children: [
+              Icon(Icons.star, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text('レベルアップ！'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Lv.$oldLevel → Lv.$newLevel',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('ステータスが上昇しました！'),
+              const SizedBox(height: 8),
+              const Text('攻撃力 +2'),
+              const Text('防御力 +2'),
+              const Text('最大HP +10'),
+              const Text('最大スタミナ +5'),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('素晴らしい！'),
+            ),
+          ],
         ),
       );
+    });
+    
+    appProvider.completeTask(task).then((result) {
+      if (result['success'] == true) {
+        // CharacterProviderでも経験値を更新（リアルタイム反映のため）
+        final expGained = result['expGained'] ?? task.experienceReward;
+        characterProvider.updateCharacterStats(experienceGain: expGained);
+        
+        // 通常の完了通知
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('タスク完了！ +$expGained XP'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // エラー通知
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('エラー: ${result['error'] ?? 'タスクの完了に失敗しました'}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     });
   }
 

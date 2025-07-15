@@ -485,19 +485,36 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
                     dueDate: dueDate,
                   );
                   
-                  Navigator.of(context).pop();
-                  await _loadData();
+                  // ダイアログを安全に閉じる
+                  if (mounted) {
+                    Navigator.of(context, rootNavigator: true).pop();
+                  }
                   
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('タスクを作成しました'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  // Context を保存してから非同期処理を実行
+                  if (mounted) {
+                    await _loadData();
+                    
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('タスクを作成しました'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('エラー: $e')),
-                  );
+                  if (mounted) {
+                    // ダイアログが開いている場合のみ閉じる
+                    try {
+                      Navigator.of(context, rootNavigator: true).pop();
+                    } catch (_) {
+                      // ダイアログが既に閉じられている場合は無視
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('エラー: $e')),
+                    );
+                  }
                 }
               },
               child: const Text('作成'),
