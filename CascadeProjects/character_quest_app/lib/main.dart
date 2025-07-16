@@ -27,7 +27,10 @@ class CharacterQuestApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CharacterProvider()),
-        ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProxyProvider<CharacterProvider, GameProvider>(
+          create: (context) => GameProvider(characterProvider: Provider.of<CharacterProvider>(context, listen: false)),
+          update: (context, characterProvider, gameProvider) => gameProvider ?? GameProvider(characterProvider: characterProvider),
+        ),
       ],
       child: MaterialApp(
         title: 'Character Quest',

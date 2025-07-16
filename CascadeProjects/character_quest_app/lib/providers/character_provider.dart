@@ -14,6 +14,11 @@ class CharacterProvider extends ChangeNotifier {
   mentor.MentorStats? _mentorStats;
   bool _isLoading = false;
   String? _error;
+  
+  // レベルアップ通知用
+  bool _hasLeveledUp = false;
+  int? _previousLevel;
+  int? _newLevel;
 
   // Services
   final SubscriptionService _subscriptionService = SubscriptionService();
@@ -28,6 +33,11 @@ class CharacterProvider extends ChangeNotifier {
   mentor.MentorStats? get mentorStats => _mentorStats;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  // レベルアップ通知用
+  bool get hasLeveledUp => _hasLeveledUp;
+  int? get previousLevel => _previousLevel;
+  int? get newLevel => _newLevel;
 
   // Character status getters
   bool get hasCharacter => _character != null;
@@ -42,26 +52,39 @@ class CharacterProvider extends ChangeNotifier {
   // Experience and level info
   int get experienceForCurrentLevel {
     if (_character == null) return 0;
-    // 現在のレベルで必要な最小経験値を計算
-    final currentLevelMinExp = (_character!.level - 1) * (_character!.level - 1) * 100;
-    // 現在の経験値から現在レベルの最小経験値を引いて、現在レベル内での進行度を取得
-    return (_character!.experience - currentLevelMinExp).clamp(0, _character!.experience);
+    
+    // 実際のデータに基づいた経験値計算
+    // レベル20で1988経験値の場合、各レベルで約100経験値が必要と仮定
+    final level = _character!.level;
+    final totalExp = _character!.experience;
+    
+    // レベル20で1988経験値の場合、平均して各レベルで約100経験値
+    // 現在レベル内での進行度を計算するため、総経験値を100で割った余りを使用
+    final currentLevelExp = totalExp % 100;
+    
+    print('experienceForCurrentLevel: level=$level, totalExp=$totalExp, currentExp=$currentLevelExp');
+    return currentLevelExp;
   }
   
   int get experienceForNextLevel {
     if (_character == null) return 100;
-    // 次のレベルまでに必要な経験値（現在レベル内での必要経験値）
-    final currentLevelMinExp = (_character!.level - 1) * (_character!.level - 1) * 100;
-    final nextLevelMinExp = _character!.level * _character!.level * 100;
-    return nextLevelMinExp - currentLevelMinExp;
+    // 各レベルで100経験値が必要
+    return 100;
   }
   
   double get levelProgress {
-    if (_character == null) return 0.0;
+    if (_character == null) {
+      print('levelProgress: character is null');
+      return 0.0;
+    }
     final currentLevelExp = experienceForCurrentLevel;
     final nextLevelExp = experienceForNextLevel;
+    final progress = (currentLevelExp.toDouble() / nextLevelExp.toDouble()).clamp(0.0, 1.0);
+    
+    print('levelProgress calculation: level=${_character!.level}, totalExp=${_character!.experience}, currentLevelExp=$currentLevelExp, nextLevelExp=$nextLevelExp, progress=$progress');
+    
     if (nextLevelExp <= 0) return 1.0;
-    return (currentLevelExp.toDouble() / nextLevelExp.toDouble()).clamp(0.0, 1.0);
+    return progress;
   }
   
   // Resources
@@ -343,6 +366,29 @@ class CharacterProvider extends ChangeNotifier {
   Future<void> refresh() async {
     if (_character == null) return;
     await initializeCharacter(_character!.id);
+  }
+
+  /// Refresh character data by user ID
+  Future<void> refreshByUserId(String userId) async {
+    // 現在のレベルを保存
+    final oldLevel = _character?.level;
+    
+    await initializeCharacterByUserId(userId);
+    
+    // レベルアップをチェック
+    if (oldLevel != null && _character != null && _character!.level > oldLevel) {
+      _hasLeveledUp = true;
+      _previousLevel = oldLevel;
+      _newLevel = _character!.level;
+      print('🎉 Level Up detected! $oldLevel → ${_character!.level}');
+    }
+  }
+  
+  /// レベルアップ通知をクリア
+  void clearLevelUpNotification() {
+    _hasLeveledUp = false;
+    _previousLevel = null;
+    _newLevel = null;
   }
 
   /// Get subscription display info

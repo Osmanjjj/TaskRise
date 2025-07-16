@@ -15,7 +15,7 @@ class HabitsScreen extends StatefulWidget {
 
 class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final TaskService _taskService = TaskService();
+  late TaskService _taskService;
   List<Task> _todayTasks = [];
   List<Task> _habits = [];
   List<Task> _completedTasks = [];
@@ -25,6 +25,9 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // CharacterProviderを取得してTaskServiceに渡す
+    final characterProvider = Provider.of<CharacterProvider>(context, listen: false);
+    _taskService = TaskService(characterProvider: characterProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
@@ -45,9 +48,9 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
       
       // Tasks data
       final results = await Future.wait([
-        _taskService.getTodayTasks(),
+        _taskService.getTodayTasks(), // 今日の未完了タスク
         _taskService.getHabits(),
-        _taskService.getTasksByCharacter(status: 'completed'),
+        _taskService.getTodayCompletedTasks(), // 今日完了したタスク
       ]);
       
       setState(() {

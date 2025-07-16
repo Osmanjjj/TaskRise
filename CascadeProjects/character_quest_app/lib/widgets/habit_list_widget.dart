@@ -34,7 +34,7 @@ class HabitListWidget extends StatelessWidget {
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: () {
-                    // Navigate to habit creation
+                    Navigator.pushNamed(context, '/habits');
                   },
                   child: const Text('習慣を追加'),
                 ),
@@ -43,21 +43,41 @@ class HabitListWidget extends StatelessWidget {
           );
         }
 
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: habits.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final habit = habits[index];
-            final canComplete = gameProvider.canCompleteHabit(habit.id, currentStamina);
-            
-            return HabitTile(
-              habit: habit,
-              canComplete: canComplete,
-              onComplete: () => _completeHabit(context, habit.id),
-            );
-          },
+        return Column(
+          children: [
+            // 習慣を追加ボタン
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/habits');
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('習慣を追加'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            // 習慣リスト
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: habits.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final habit = habits[index];
+                final canComplete = gameProvider.canCompleteHabit(habit.id, currentStamina);
+                
+                return HabitTile(
+                  habit: habit,
+                  canComplete: canComplete,
+                  onComplete: () => _completeHabit(context, habit.id),
+                );
+              },
+            ),
+          ],
         );
       },
     );

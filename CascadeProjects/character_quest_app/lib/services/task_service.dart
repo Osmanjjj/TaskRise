@@ -3,10 +3,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task.dart';
 import '../models/character.dart';
 import 'character_service.dart';
+import '../providers/character_provider.dart';
 
 class TaskService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final CharacterService _characterService = CharacterService();
+  final CharacterProvider? _characterProvider;
+
+  TaskService({CharacterProvider? characterProvider}) : _characterProvider = characterProvider;
 
   // 現在のユーザーのキャラクターIDを取得するヘルパーメソッド
   Future<String> _getCurrentCharacterId() async {
@@ -96,6 +100,7 @@ class TaskService {
           .from('tasks')
           .select()
           .eq('character_id', characterId)
+          .eq('status', 'pending') // 未完了タスクのみ取得
           .gte('due_date', startOfDay.toIso8601String())
           .lt('due_date', endOfDay.toIso8601String())
           .order('due_date', ascending: true);
@@ -105,6 +110,31 @@ class TaskService {
           .toList();
     } catch (e) {
       throw Exception('今日のタスクの取得に失敗しました: $e');
+    }
+  }
+
+  // 今日完了したタスクを取得
+  Future<List<Task>> getTodayCompletedTasks() async {
+    try {
+      final characterId = await _getCurrentCharacterId();
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final response = await _supabase
+          .from('tasks')
+          .select()
+          .eq('character_id', characterId)
+          .eq('status', 'completed')
+          .gte('completed_at', startOfDay.toIso8601String())
+          .lt('completed_at', endOfDay.toIso8601String())
+          .order('completed_at', ascending: false);
+
+      return (response as List)
+          .map((json) => Task.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('今日の完了済みタスクの取得に失敗しました: $e');
     }
   }
 
@@ -119,6 +149,12 @@ class TaskService {
           .single();
       
       final task = Task.fromJson(taskResponse);
+      
+      // 既に完了済みのタスクかチェック
+      if (task.status == TaskStatus.completed) {
+        print('Task already completed: $taskId');
+        throw Exception('このタスクは既に完了済みです');
+      }
       
       // タスクを完了状態に更新
       final response = await _supabase
@@ -308,6 +344,12 @@ class TaskService {
       if (result['success'] == true) {
         // 日次統計も更新
         await _updateDailyStats(character.id, experienceGained);
+        
+        // CharacterProviderを更新してUIに反映
+        if (_characterProvider != null) {
+          await _characterProvider!.refreshByUserId(userId);
+          print('CharacterProvider updated successfully');
+        }
         
         // レベルアップした場合の処理（将来的にUI通知などを追加可能）
         if (result['leveledUp'] == true) {

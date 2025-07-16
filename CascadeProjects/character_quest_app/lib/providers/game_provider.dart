@@ -5,6 +5,7 @@ import '../models/raid.dart';
 import '../models/daily_stats.dart';
 import '../models/habit_completion.dart';
 import '../services/services.dart';
+import 'character_provider.dart';
 import 'dart:async';
 
 class GameProvider extends ChangeNotifier {
@@ -20,8 +21,12 @@ class GameProvider extends ChangeNotifier {
 
   // Services
   final HabitService _habitService = HabitService();
-  final TaskService _taskService = TaskService();
+  late final TaskService _taskService;
   final EventService _eventService = EventService();
+
+  GameProvider({CharacterProvider? characterProvider}) {
+    _taskService = TaskService(characterProvider: characterProvider);
+  }
 
   // Stream subscriptions for real-time updates
   StreamSubscription? _eventSubscription;

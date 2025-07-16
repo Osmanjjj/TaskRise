@@ -3,13 +3,172 @@ import 'package:provider/provider.dart';
 import '../providers/character_provider.dart';
 import '../models/character.dart';
 
-class CharacterDisplayWidget extends StatelessWidget {
+class CharacterDisplayWidget extends StatefulWidget {
   const CharacterDisplayWidget({super.key});
+
+  @override
+  State<CharacterDisplayWidget> createState() => _CharacterDisplayWidgetState();
+}
+
+class _CharacterDisplayWidgetState extends State<CharacterDisplayWidget>
+    with TickerProviderStateMixin {
+
+  late AnimationController _expAnimationController;
+  late Animation<double> _expAnimation;
+  double _previousProgress = 0.0;
+  double _currentAnimatedProgress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _expAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _expAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _expAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _expAnimation.addListener(() {
+      setState(() {
+        _currentAnimatedProgress = _expAnimation.value;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _expAnimationController.dispose();
+    super.dispose();
+  }
+
+  void _updateExpProgress(double newProgress) {
+    print('_updateExpProgress called: previous=$_previousProgress, new=$newProgress');
+    
+    // 初回の場合は即座に設定
+    if (_previousProgress == 0.0 && newProgress > 0.0) {
+      print('Setting initial EXP progress: $newProgress');
+      setState(() {
+        _currentAnimatedProgress = newProgress;
+        _previousProgress = newProgress;
+      });
+      return;
+    }
+    
+    // 経験値が変化した場合（増加・減少問わず）
+    if ((newProgress - _previousProgress).abs() > 0.001) {
+      print('Animating EXP progress: $_previousProgress → $newProgress');
+      
+      // アニメーションをよりダイナミックに
+      _expAnimation = Tween<double>(
+        begin: _currentAnimatedProgress,
+        end: newProgress,
+      ).animate(CurvedAnimation(
+        parent: _expAnimationController,
+        curve: Curves.elasticOut, // よりダイナミックなカーブ
+      ));
+      
+      _expAnimationController.reset();
+      _expAnimationController.forward();
+      _previousProgress = newProgress;
+      
+      // EXP獲得時の特別なエフェクト
+      _showExpGainEffect();
+    } else {
+      print('No significant change in EXP progress');
+    }
+  }
+  
+  void _showExpGainEffect() {
+    // バイブレーションやサウンドなどのエフェクトを追加できる
+    print('🎆 EXP獲得エフェクト!');
+    // TODO: パーティクルエフェクトやサウンドを追加
+  }
+  
+  void _showLevelUpAnimation(int oldLevel, int newLevel) {
+    print('🎉 LEVEL UP! $oldLevel → $newLevel');
+    
+    // レベルアップダイアログを表示
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.amber.shade300, Colors.orange.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.amber.withOpacity(0.5),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.star,
+                  size: 60,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'LEVEL UP!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Level $oldLevel → Level $newLevel',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.orange,
+                  ),
+                  child: const Text('おめでとう!'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<CharacterProvider>(
       builder: (context, characterProvider, child) {
+        // レベルアップチェック
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (characterProvider.hasLeveledUp) {
+            _showLevelUpAnimation(characterProvider.previousLevel!, characterProvider.newLevel!);
+            characterProvider.clearLevelUpNotification();
+          }
+        });
         final character = characterProvider.character;
         
         if (character == null) {
@@ -146,6 +305,11 @@ class CharacterDisplayWidget extends StatelessWidget {
     final currentExp = provider.experienceForCurrentLevel;
     final nextLevelExp = provider.experienceForNextLevel;
     
+    // 経験値の進行度が変わった場合にアニメーションを開始
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateExpProgress(progress);
+    });
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -163,10 +327,47 @@ class CharacterDisplayWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            color: Colors.grey[300],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Stack(
+              children: [
+                // Background
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.grey[300],
+                ),
+                // Animated progress
+                FractionallySizedBox(
+                  widthFactor: _currentAnimatedProgress,
+                  child: Container(
+                    height: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green.shade400,
+                          Colors.green.shade600,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );

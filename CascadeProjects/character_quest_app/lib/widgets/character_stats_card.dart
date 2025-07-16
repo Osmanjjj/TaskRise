@@ -128,7 +128,7 @@ class CharacterStatsCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${characterProvider.experienceForNextLevel - character.experience} EXP',
+                            '${characterProvider.experienceForNextLevel - characterProvider.experienceForCurrentLevel} EXP',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Theme.of(context).primaryColor,
                               fontWeight: FontWeight.w500,
