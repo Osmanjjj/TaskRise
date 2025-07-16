@@ -116,6 +116,7 @@ class SupabaseService {
     TaskDifficulty difficulty = TaskDifficulty.normal,
     DateTime? dueDate,
     String? characterId,
+    bool isHabit = false,
   }) async {
     try {
       // デバッグ: 現在のユーザーとキャラクターIDを確認
@@ -150,20 +151,38 @@ class SupabaseService {
       final now = DateTime.now();
       final experienceReward = Task.getExperienceForDifficulty(difficulty);
       
+      // 基本的なタスクデータ
+      final taskData = <String, dynamic>{
+        'title': title,
+        'description': description,
+        'difficulty': difficulty.name,
+        'status': TaskStatus.pending.name,
+        'category': 'その他',
+        'experience_reward': experienceReward,
+        'due_date': dueDate?.toIso8601String(),
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+        'character_id': actualCharacterId,
+      };
+      
+      // データベースに新しいカラムが存在する場合のみ追加
+      // TODO: マイグレーション実行後、これらのフィールドを常に含めるように変更
+      try {
+        // 新しいカラムが存在するかチェック
+        await client.from('tasks').select('is_habit').limit(1);
+        // エラーが発生しなければ、新しいカラムが存在する
+        taskData['is_habit'] = isHabit;
+        taskData['streak_count'] = 0;
+        taskData['streak_bonus_multiplier'] = 1.0;
+        taskData['max_streak'] = 0;
+      } catch (e) {
+        // カラムが存在しない場合は無視
+        print('Note: Streak fields not yet available in database. Run migration to enable.');
+      }
+      
       final response = await client
           .from('tasks')
-          .insert({
-            'title': title,
-            'description': description,
-            'difficulty': difficulty.name,
-            'status': TaskStatus.pending.name,
-            'category': 'その他',
-            'experience_reward': experienceReward,
-            'due_date': dueDate?.toIso8601String(),
-            'created_at': now.toIso8601String(),
-            'updated_at': now.toIso8601String(),
-            'character_id': actualCharacterId,
-          })
+          .insert(taskData)
           .select()
           .single();
       

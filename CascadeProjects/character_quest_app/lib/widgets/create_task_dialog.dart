@@ -18,6 +18,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
   TaskDifficulty _selectedDifficulty = TaskDifficulty.normal;
   DateTime? _selectedDueDate;
   bool _isLoading = false;
+  bool _isHabit = false;
 
   @override
   void dispose() {
@@ -171,6 +172,23 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
               ),
               const SizedBox(height: 16),
               
+              // Habit Toggle
+              SwitchListTile(
+                title: const Text('習慣タスク'),
+                subtitle: const Text('毎日継続することでボーナス経験値を獲得'),
+                value: _isHabit,
+                onChanged: _isLoading ? null : (value) {
+                  setState(() {
+                    _isHabit = value;
+                  });
+                },
+                secondary: Icon(
+                  Icons.local_fire_department,
+                  color: _isHabit ? Colors.amber : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
               // Due Date Selector
               Text(
                 'Due Date (Optional)',
@@ -303,6 +321,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
             : _descriptionController.text.trim(),
         difficulty: _selectedDifficulty,
         dueDate: _selectedDueDate,
+        isHabit: _isHabit,
       );
       
       if (mounted) {

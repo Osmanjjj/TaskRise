@@ -52,6 +52,13 @@ class Task {
   // Habit-related properties for compatibility
   final int chainLength;
   final bool isCompleted;
+  
+  // Streak tracking properties
+  final bool isHabit;
+  final int streakCount;
+  final DateTime? lastCompletedDate;
+  final double streakBonusMultiplier;
+  final int maxStreak;
 
   Task({
     required this.id,
@@ -67,6 +74,11 @@ class Task {
     this.characterId,
     this.chainLength = 0,
     bool? isCompleted,
+    this.isHabit = false,
+    this.streakCount = 0,
+    this.lastCompletedDate,
+    this.streakBonusMultiplier = 1.0,
+    this.maxStreak = 0,
   }) : isCompleted = isCompleted ?? (status == TaskStatus.completed);
 
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -91,6 +103,17 @@ class Task {
       updatedAt: DateTime.parse(json['updated_at']),
       characterId: json['character_id'],
       chainLength: json['chain_length'] ?? 0,
+      isHabit: json['is_habit'] ?? false,
+      streakCount: json['streak_count'] ?? 0,
+      lastCompletedDate: json['last_completed_date'] != null 
+        ? DateTime.parse(json['last_completed_date']) 
+        : null,
+      streakBonusMultiplier: json['streak_bonus_multiplier'] != null 
+        ? (json['streak_bonus_multiplier'] is String 
+          ? double.parse(json['streak_bonus_multiplier']) 
+          : (json['streak_bonus_multiplier'] as num).toDouble())
+        : 1.0,
+      maxStreak: json['max_streak'] ?? 0,
     );
   }
 
@@ -108,6 +131,11 @@ class Task {
       'updated_at': updatedAt.toIso8601String(),
       'character_id': characterId,
       'chain_length': chainLength,
+      'is_habit': isHabit,
+      'streak_count': streakCount,
+      'last_completed_date': lastCompletedDate?.toIso8601String(),
+      'streak_bonus_multiplier': streakBonusMultiplier,
+      'max_streak': maxStreak,
     };
   }
 
@@ -125,6 +153,11 @@ class Task {
     String? characterId,
     int? chainLength,
     bool? isCompleted,
+    bool? isHabit,
+    int? streakCount,
+    DateTime? lastCompletedDate,
+    double? streakBonusMultiplier,
+    int? maxStreak,
   }) {
     return Task(
       id: id ?? this.id,
@@ -140,6 +173,11 @@ class Task {
       characterId: characterId ?? this.characterId,
       chainLength: chainLength ?? this.chainLength,
       isCompleted: isCompleted,
+      isHabit: isHabit ?? this.isHabit,
+      streakCount: streakCount ?? this.streakCount,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
+      streakBonusMultiplier: streakBonusMultiplier ?? this.streakBonusMultiplier,
+      maxStreak: maxStreak ?? this.maxStreak,
     );
   }
 
@@ -165,5 +203,35 @@ class Task {
       case TaskDifficulty.hard:
         return '#F44336'; // Red
     }
+  }
+  
+  // Calculate experience with streak bonus
+  int get experienceWithBonus {
+    return (experienceReward * streakBonusMultiplier).round();
+  }
+  
+  // Get streak bonus percentage for display
+  int get streakBonusPercentage {
+    return ((streakBonusMultiplier - 1.0) * 100).round();
+  }
+  
+  // Calculate streak multiplier based on days
+  static double calculateStreakMultiplier(int streakDays) {
+    if (streakDays <= 0) return 1.0;
+    
+    // Base multiplier: 1.0
+    // Every 3 days: +0.1x (3日毎に10%ボーナス)
+    // Every 7 days: additional +0.1x (1週間毎に追加10%ボーナス)
+    // Every 30 days: additional +0.2x (30日毎に追加20%ボーナス)
+    
+    double baseMultiplier = 1.0;
+    double threeDayBonus = (streakDays ~/ 3) * 0.1;
+    double weeklyBonus = (streakDays ~/ 7) * 0.1;
+    double monthlyBonus = (streakDays ~/ 30) * 0.2;
+    
+    double totalMultiplier = baseMultiplier + threeDayBonus + weeklyBonus + monthlyBonus;
+    
+    // Cap at 2.0x (最大2倍)
+    return totalMultiplier > 2.0 ? 2.0 : totalMultiplier;
   }
 }

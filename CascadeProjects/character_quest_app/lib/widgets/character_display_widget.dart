@@ -47,11 +47,8 @@ class _CharacterDisplayWidgetState extends State<CharacterDisplayWidget>
   }
 
   void _updateExpProgress(double newProgress) {
-    print('_updateExpProgress called: previous=$_previousProgress, new=$newProgress');
-    
     // 初回の場合は即座に設定
     if (_previousProgress == 0.0 && newProgress > 0.0) {
-      print('Setting initial EXP progress: $newProgress');
       setState(() {
         _currentAnimatedProgress = newProgress;
         _previousProgress = newProgress;
@@ -61,8 +58,6 @@ class _CharacterDisplayWidgetState extends State<CharacterDisplayWidget>
     
     // 経験値が変化した場合（増加・減少問わず）
     if ((newProgress - _previousProgress).abs() > 0.001) {
-      print('Animating EXP progress: $_previousProgress → $newProgress');
-      
       // アニメーションをよりダイナミックに
       _expAnimation = Tween<double>(
         begin: _currentAnimatedProgress,
@@ -78,8 +73,6 @@ class _CharacterDisplayWidgetState extends State<CharacterDisplayWidget>
       
       // EXP獲得時の特別なエフェクト
       _showExpGainEffect();
-    } else {
-      print('No significant change in EXP progress');
     }
   }
   
@@ -305,10 +298,12 @@ class _CharacterDisplayWidgetState extends State<CharacterDisplayWidget>
     final currentExp = provider.experienceForCurrentLevel;
     final nextLevelExp = provider.experienceForNextLevel;
     
-    // 経験値の進行度が変わった場合にアニメーションを開始
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateExpProgress(progress);
-    });
+    // 経験値の進行度が変わった場合にアニメーションを開始（無限ループを防ぐ）
+    if ((progress - _previousProgress).abs() > 0.001) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateExpProgress(progress);
+      });
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

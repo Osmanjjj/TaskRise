@@ -25,6 +25,11 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {}); // FABのラベルを更新
+      }
+    });
     // CharacterProviderを取得してTaskServiceに渡す
     final characterProvider = Provider.of<CharacterProvider>(context, listen: false);
     _taskService = TaskService(characterProvider: characterProvider);
@@ -104,9 +109,25 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateTaskDialog(),
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          switch (_tabController.index) {
+            case 0: // 今日のタスク
+              _showCreateTaskDialog(isHabit: false, isToday: true);
+              break;
+            case 1: // 習慣
+              _showCreateTaskDialog(isHabit: true, isToday: false);
+              break;
+            case 2: // 完了済み
+              // 完了済みタブでは新規作成不要
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('タスクを作成するには、今日のタスクまたは習慣タブに切り替えてください')),
+              );
+              break;
+          }
+        },
+        label: Text(_tabController.index == 1 ? '習慣を追加' : 'タスクを追加'),
+        icon: const Icon(Icons.add),
       ),
     );
   }
@@ -297,7 +318,7 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('タスクを完了'),
-        content: Text('「${task.title}」を完了しますか？\n${task.experienceReward} EXPを獲得します。'),
+        content: Text('「${task.title}」を完了しますか？\n${task.isHabit && task.streakCount > 0 ? task.experienceWithBonus : task.experienceReward} EXPを獲得します。${task.isHabit && task.streakBonusPercentage > 0 ? '\n(${task.streakCount}日連続ボーナス: +${task.streakBonusPercentage}%)' : ''}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -327,7 +348,7 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('タスクを完了しました！ +${task.experienceReward} EXP'),
+              content: Text('タスクを完了しました！ +${task.isHabit && task.streakCount > 0 ? task.experienceWithBonus : task.experienceReward} EXP${task.isHabit && task.streakBonusPercentage > 0 ? ' (連続ボーナス含む)' : ''}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -383,6 +404,9 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
     TaskDifficulty difficulty = TaskDifficulty.normal;
     TaskCategory category = isHabit ? TaskCategory.hobby : TaskCategory.other;
     DateTime? dueDate = isToday ? DateTime.now() : null;
+  
+    // 親のcontextを保存
+    final parentContext = context;
 
     showDialog(
       context: context,
@@ -471,11 +495,14 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
             ElevatedButton(
               onPressed: () async {
                 if (titleController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     const SnackBar(content: Text('タイトルを入力してください')),
                   );
                   return;
                 }
+
+                // ダイアログを先に閉じる
+                Navigator.of(context).pop();
 
                 try {
                   await _taskService.createTask(
@@ -486,35 +513,22 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
                     category: category.displayName,
                     difficulty: difficulty.name,
                     dueDate: dueDate,
+                    isHabit: isHabit, // パラメータに基づいて設定
                   );
                   
-                  // ダイアログを安全に閉じる
-                  if (mounted) {
-                    Navigator.of(context, rootNavigator: true).pop();
-                  }
+                  await _loadData();
                   
-                  // Context を保存してから非同期処理を実行
                   if (mounted) {
-                    await _loadData();
-                    
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('タスクを作成しました'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(
+                        content: Text(isHabit ? '習慣タスクを作成しました' : 'タスクを作成しました'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   }
                 } catch (e) {
                   if (mounted) {
-                    // ダイアログが開いている場合のみ閉じる
-                    try {
-                      Navigator.of(context, rootNavigator: true).pop();
-                    } catch (_) {
-                      // ダイアログが既に閉じられている場合は無視
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
                       SnackBar(content: Text('エラー: $e')),
                     );
                   }

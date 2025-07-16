@@ -38,6 +38,7 @@ class TaskService {
     required String category,
     required String difficulty,
     DateTime? dueDate,
+    bool isHabit = false,
   }) async {
     try {
       final characterId = await _getCurrentCharacterId();
@@ -54,6 +55,10 @@ class TaskService {
         'due_date': dueDate?.toIso8601String(),
         'character_id': characterId,
         'status': 'pending',
+        'is_habit': isHabit,
+        'streak_count': 0,
+        'streak_bonus_multiplier': 1.0,
+        'max_streak': 0,
       };
 
       final response = await _supabase
@@ -156,34 +161,37 @@ class TaskService {
         throw Exception('このタスクは既に完了済みです');
       }
       
-      // タスクを完了状態に更新
+      // タスクを完了状態に更新（データベースのトリガーが連続記録を更新）
+      final now = DateTime.now();
       final response = await _supabase
           .from('tasks')
           .update({
             'status': 'completed',
-            'completed_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
+            'completed_at': now.toIso8601String(),
+            'updated_at': now.toIso8601String(),
           })
           .eq('id', taskId)
           .select()
           .single();
 
-      // 習慣タスクの場合はボーナスEXPを計算
+      // 更新されたタスクを取得
+      final updatedTask = Task.fromJson(response);
+      
+      // 習慣タスクの場合は連続達成ボーナスを含めた経験値を計算
       int totalExp = task.experienceReward;
-      if (task.category == TaskCategory.health || task.category == TaskCategory.learning) {
-        // 習慣タスクにはボーナスEXPを追加（基本報酬の50%）
-        final bonusExp = (task.experienceReward * 0.5).round();
-        totalExp += bonusExp;
-        
-        // 連続達成チェック（過去7日間の同じカテゴリの完了タスク数）
-        final streakBonus = await _calculateStreakBonus(task.characterId!, task.category);
-        totalExp += streakBonus;
+      if (updatedTask.isHabit) {
+        // 連続達成ボーナスを適用
+        totalExp = updatedTask.experienceWithBonus;
+        print('習慣タスク完了: ${updatedTask.title}');
+        print('連続達成日数: ${updatedTask.streakCount}日');
+        print('ボーナス倍率: ${updatedTask.streakBonusMultiplier}x');
+        print('獲得経験値: ${task.experienceReward} → $totalExp');
       }
 
       // キャラクターの経験値を更新
       await _updateCharacterExperience(totalExp);
 
-      return Task.fromJson(response);
+      return updatedTask;
     } catch (e) {
       throw Exception('タスクの完了に失敗しました: $e');
     }
@@ -248,7 +256,8 @@ class TaskService {
           .from('tasks')
           .select()
           .eq('character_id', characterId)
-          .eq('category', 'habit')
+          .eq('is_habit', true)
+          .eq('status', 'pending') // 未完了の習慣タスクのみ取得
           .order('created_at', ascending: false);
 
       return (response as List)

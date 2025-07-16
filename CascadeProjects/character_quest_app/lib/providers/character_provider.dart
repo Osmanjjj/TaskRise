@@ -62,7 +62,7 @@ class CharacterProvider extends ChangeNotifier {
     // 現在レベル内での進行度を計算するため、総経験値を100で割った余りを使用
     final currentLevelExp = totalExp % 100;
     
-    print('experienceForCurrentLevel: level=$level, totalExp=$totalExp, currentExp=$currentLevelExp');
+    // print('experienceForCurrentLevel: level=$level, totalExp=$totalExp, currentExp=$currentLevelExp');
     return currentLevelExp;
   }
   
@@ -81,7 +81,7 @@ class CharacterProvider extends ChangeNotifier {
     final nextLevelExp = experienceForNextLevel;
     final progress = (currentLevelExp.toDouble() / nextLevelExp.toDouble()).clamp(0.0, 1.0);
     
-    print('levelProgress calculation: level=${_character!.level}, totalExp=${_character!.experience}, currentLevelExp=$currentLevelExp, nextLevelExp=$nextLevelExp, progress=$progress');
+    // print('levelProgress calculation: level=${_character!.level}, totalExp=${_character!.experience}, currentLevelExp=$currentLevelExp, nextLevelExp=$nextLevelExp, progress=$progress');
     
     if (nextLevelExp <= 0) return 1.0;
     return progress;

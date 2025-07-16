@@ -172,7 +172,9 @@ class TaskCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '+${task.experienceReward} XP',
+                        task.isHabit && task.streakCount > 0
+                            ? '+${task.experienceWithBonus} XP'
+                            : '+${task.experienceReward} XP',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -181,6 +183,52 @@ class TaskCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Streak Badge (for habit tasks)
+                if (task.isHabit && task.streakCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.amber.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          size: 12,
+                          color: Colors.amber.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${task.streakCount}日',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.amber.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (task.streakBonusPercentage > 0) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '+${task.streakBonusPercentage}%',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.amber.shade700,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 // Due Date
                 if (task.dueDate != null)

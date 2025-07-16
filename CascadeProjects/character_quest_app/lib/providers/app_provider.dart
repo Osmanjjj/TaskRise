@@ -57,6 +57,7 @@ class AppProvider extends ChangeNotifier {
     String? description,
     TaskDifficulty difficulty = TaskDifficulty.normal,
     DateTime? dueDate,
+    bool isHabit = false,
   }) async {
     _setLoading(true);
     try {
@@ -69,6 +70,7 @@ class AppProvider extends ChangeNotifier {
         difficulty: difficulty,
         dueDate: dueDate,
         characterId: _selectedCharacter?.id,
+        isHabit: isHabit,
       );
       
       if (task != null) {
