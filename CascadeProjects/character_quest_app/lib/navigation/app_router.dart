@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/screens.dart';
+import '../screens/settings_screen.dart';
+import '../widgets/auth_guard.dart';
 
 class AppRouter {
   static const String dashboard = '/';
@@ -13,19 +15,23 @@ class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case dashboard:
-        return MaterialPageRoute(builder: (_) => const DashboardScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: DashboardScreen()));
       case habits:
-        return MaterialPageRoute(builder: (_) => const HabitsScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: HabitsScreen()));
       case events:
-        return MaterialPageRoute(builder: (_) => const EventsScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: EventsScreen()));
       case guilds:
-        return MaterialPageRoute(builder: (_) => const GuildsScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: GuildsScreen()));
       case gacha:
-        return MaterialPageRoute(builder: (_) => const GachaScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: GachaScreen()));
       case mentor:
-        return MaterialPageRoute(builder: (_) => const MentorScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: MentorScreen()));
       case profile:
-        return MaterialPageRoute(builder: (_) => const ProfileScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: ProfileScreen()));
+      case '/auth':
+        return MaterialPageRoute(builder: (_) => const AuthScreen());
+      case '/settings':
+        return MaterialPageRoute(builder: (_) => const AuthGuard(child: SettingsScreen()));
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

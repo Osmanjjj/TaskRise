@@ -1,4 +1,4 @@
-import 'crystal.dart';
+import 'crystal.dart' show CrystalReward;
 
 class HabitCompletion {
   final String id;
@@ -84,36 +84,6 @@ class HabitCompletion {
   }
 }
 
-class CrystalReward {
-  final CrystalType type;
-  final int amount;
-
-  CrystalReward({
-    required this.type,
-    required this.amount,
-  });
-
-  factory CrystalReward.fromJson(Map<String, dynamic> json) {
-    return CrystalReward(
-      type: CrystalType.values.firstWhere(
-        (t) => t.name == json['type'],
-        orElse: () => CrystalType.blue,
-      ),
-      amount: json['amount'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'type': type.name,
-      'amount': amount,
-    };
-  }
-
-  int get totalValue => amount * type.value;
-  
-  String get displayText => '${type.emoji} ${amount}個';
-}
 
 class HabitChain {
   final String characterId;

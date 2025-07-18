@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/character_provider.dart';
 import '../services/task_service.dart';
+import '../services/crystal_service.dart';
 import '../models/task.dart';
+import '../models/crystal.dart';
 import '../widgets/character_display_widget.dart';
+import '../widgets/crystal_inventory_widget.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -76,6 +79,9 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final characterProvider = context.watch<CharacterProvider>();
+    final characterId = characterProvider.character?.id;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('習慣管理'),
@@ -95,6 +101,20 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
             padding: EdgeInsets.all(16.0),
             child: CharacterDisplayWidget(),
           ),
+          
+          // 結晶在庫表示
+          if (characterId != null) 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: CrystalInventoryWidget(
+                characterId: characterId,
+                onTap: () {
+                  _showCrystalDetailDialog(context, characterId);
+                },
+              ),
+            ),
+          
+          const SizedBox(height: 8),
           
           // タブビュー
           Expanded(
@@ -318,7 +338,64 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('タスクを完了'),
-        content: Text('「${task.title}」を完了しますか？\n${task.isHabit && task.streakCount > 0 ? task.experienceWithBonus : task.experienceReward} EXPを獲得します。${task.isHabit && task.streakBonusPercentage > 0 ? '\n(${task.streakCount}日連続ボーナス: +${task.streakBonusPercentage}%)' : ''}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('「${task.title}」を完了しますか？'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '獲得報酬',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.star, size: 20, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${task.isHabit && task.streakCount > 0 ? task.experienceWithBonus : task.experienceReward} EXP',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      if (task.isHabit && task.streakBonusPercentage > 0) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${task.streakCount}日連続 +${task.streakBonusPercentage}%)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.diamond, size: 20, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '青結晶 ×1',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -334,7 +411,8 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
 
     if (confirmed == true) {
       try {
-        await _taskService.completeTask(task.id);
+        // タスク完了処理
+        final result = await _taskService.completeTask(task.id);
         
         // レベルアップチェック
         final characterProvider = context.read<CharacterProvider>();
@@ -343,15 +421,17 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
         await _loadData();
         
         final newLevel = characterProvider.character?.level ?? 1;
-        if (newLevel > oldLevel) {
+        
+        // 結晶獲得の表示
+        bool hasLeveledUp = newLevel > oldLevel;
+        
+        if (hasLeveledUp) {
           _showLevelUpDialog(oldLevel, newLevel);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('タスクを完了しました！ +${task.isHabit && task.streakCount > 0 ? task.experienceWithBonus : task.experienceReward} EXP${task.isHabit && task.streakBonusPercentage > 0 ? ' (連続ボーナス含む)' : ''}'),
-              backgroundColor: Colors.green,
-            ),
-          );
+        }
+        
+        // 結晶獲得メッセージを含むSnackBar
+        if (!hasLeveledUp) {
+          _showCompletionSnackBar(task);
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -386,6 +466,36 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
             ),
             const SizedBox(height: 16),
             const Text('おめでとうございます！'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.blue.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.diamond,
+                    size: 20,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '青結晶 +1',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
@@ -396,6 +506,18 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
         ],
       ),
     );
+  }
+
+  void _showCrystalDetailDialog(BuildContext context, String characterId) async {
+    final crystalService = CrystalService();
+    final inventory = await crystalService.getCrystalInventory(characterId);
+    
+    if (inventory != null && mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => CrystalDetailDialog(inventory: inventory),
+      );
+    }
   }
 
   void _showCreateTaskDialog({bool isHabit = false, bool isToday = false}) {
@@ -710,5 +832,55 @@ class _HabitsScreenState extends State<HabitsScreen> with SingleTickerProviderSt
 
   String _formatDate(DateTime date) {
     return '${date.year}/${date.month}/${date.day}';
+  }
+  
+  void _showCompletionSnackBar(Task task) {
+    final expGained = task.isHabit && task.streakCount > 0 
+        ? task.experienceWithBonus 
+        : task.experienceReward;
+    final streakBonus = task.isHabit && task.streakBonusPercentage > 0 
+        ? ' (連続ボーナス含む)' 
+        : '';
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'タスクを完了しました！ +$expGained EXP$streakBonus',
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.diamond,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '+1',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }

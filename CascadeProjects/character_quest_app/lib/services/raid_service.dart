@@ -287,7 +287,17 @@ class RaidService {
             crystalRewards[crystalType] = amount;
           }
           
-          await crystalService.addCrystals(participation.characterId, crystalRewards);
+          // Award crystals one by one
+          for (final entry in crystalRewards.entries) {
+            await crystalService.awardCrystals(
+              characterId: participation.characterId,
+              crystalType: entry.key,
+              amount: entry.value,
+              source: 'raid_reward',
+              sourceId: raidBossId,
+              description: 'レイド報酬',
+            );
+          }
         }
 
         // Mark participation as rewarded

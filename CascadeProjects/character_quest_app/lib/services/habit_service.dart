@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/habit_completion.dart';
-import '../models/crystal.dart';
+import '../models/crystal.dart' as crystal_model;
 import '../models/character.dart';
 import '../models/daily_stats.dart';
 import 'crystal_service.dart';
@@ -59,11 +59,16 @@ class HabitService {
 
       // Add crystals to inventory
       if (finalRewards.crystalsEarned.isNotEmpty) {
-        final crystalMap = <CrystalType, int>{};
         for (final crystal in finalRewards.crystalsEarned) {
-          crystalMap[crystal.type] = (crystalMap[crystal.type] ?? 0) + crystal.amount;
+          await _crystalService.awardCrystals(
+            characterId: characterId,
+            crystalType: crystal_model.CrystalType.blue,  // Assuming habit rewards are blue crystals
+            amount: crystal.amount,
+            source: 'habit_completion',
+            sourceId: taskId,
+            description: '習慣タスク完了報酬',
+          );
         }
-        await _crystalService.addCrystals(characterId, crystalMap);
       }
 
       // Update habit chain
@@ -257,8 +262,8 @@ class HabitService {
   }
 
   /// Generate crystal rewards based on difficulty and streak
-  List<CrystalReward> _generateCrystalRewards(String difficulty, int consecutiveDays) {
-    final crystals = <CrystalReward>[];
+  List<crystal_model.CrystalReward> _generateCrystalRewards(String difficulty, int consecutiveDays) {
+    final crystals = <crystal_model.CrystalReward>[];
     final random = DateTime.now().millisecondsSinceEpoch % 100;
 
     // Base crystal chance based on difficulty
@@ -291,13 +296,13 @@ class HabitService {
 
     // Check for crystal drops
     if (random < (rainbowCrystalChance * 100)) {
-      crystals.add(CrystalReward(type: CrystalType.rainbow, amount: 1));
+      crystals.add(crystal_model.CrystalReward(type: crystal_model.CrystalType.rainbow, amount: 1, reason: 'レアドロップ'));
     } else if (random < (goldCrystalChance * 100)) {
-      crystals.add(CrystalReward(type: CrystalType.gold, amount: 1));
+      crystals.add(crystal_model.CrystalReward(type: crystal_model.CrystalType.gold, amount: 1, reason: '習慣タスク報酬'));
     } else if (random < (greenCrystalChance * 100)) {
-      crystals.add(CrystalReward(type: CrystalType.green, amount: 1));
+      crystals.add(crystal_model.CrystalReward(type: crystal_model.CrystalType.green, amount: 1, reason: '習慣タスク報酬'));
     } else if (random < (blueCrystalChance * 100)) {
-      crystals.add(CrystalReward(type: CrystalType.blue, amount: 1));
+      crystals.add(crystal_model.CrystalReward(type: crystal_model.CrystalType.blue, amount: 1, reason: '習慣タスク完了'));
     }
 
     return crystals;
@@ -531,7 +536,7 @@ class HabitRewards {
   final int experienceEarned;
   final int battlePointsEarned;
   final int staminaEarned;
-  final List<CrystalReward> crystalsEarned;
+  final List<crystal_model.CrystalReward> crystalsEarned;
 
   HabitRewards({
     required this.experienceEarned,

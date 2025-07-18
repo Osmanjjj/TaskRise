@@ -75,8 +75,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 16),
                         
                         // Crystal Inventory
-                        CrystalInventoryWidget(),
-                        const SizedBox(height: 16),
+                        if (characterProvider.character != null)
+                          CrystalInventoryWidget(characterId: characterProvider.character!.id),
+                        if (characterProvider.character != null)
+                          const SizedBox(height: 16),
                         
                         // Active Events
                         ActiveEventsWidget(),
@@ -185,6 +187,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/events');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.casino),
+            title: const Text('ガチャ'),
+            onTap: () {
+              print('Gacha button tapped');
+              Navigator.pop(context);
+              print('Drawer closed, navigating to /gacha');
+              Navigator.pushNamed(context, '/gacha').then((value) {
+                print('Navigation completed');
+              }).catchError((error) {
+                print('Navigation error: $error');
+              });
             },
           ),
           const Divider(),

@@ -181,7 +181,7 @@ class EventService {
       final rewards = _calculateEventRewards(event, eventParticipation);
 
       // Apply rewards to character
-      await _applyEventRewards(characterId, rewards);
+      await _applyEventRewards(characterId, eventId, rewards);
 
       // Mark rewards as claimed
       await _supabase
@@ -373,7 +373,7 @@ class EventService {
     return rewards;
   }
 
-  Future<void> _applyEventRewards(String characterId, List<EventReward> rewards) async {
+  Future<void> _applyEventRewards(String characterId, String eventId, List<EventReward> rewards) async {
     // Get current character stats
     final characterData = await _supabase
         .from('characters')
@@ -393,9 +393,14 @@ class EventService {
           break;
         
         case EventRewardType.crystals:
-          await _crystalService.addCrystals(characterId, {
-            CrystalType.blue: reward.amount,
-          });
+          await _crystalService.awardCrystals(
+            characterId: characterId,
+            crystalType: CrystalType.blue,
+            amount: reward.amount.toInt(),
+            source: 'event_reward',
+            sourceId: eventId,
+            description: 'イベント報酬',
+          );
           break;
         
         case EventRewardType.battle_points:
@@ -408,9 +413,14 @@ class EventService {
         
         case EventRewardType.rare_item:
           // Add to character's inventory
-          await _crystalService.addCrystals(characterId, {
-            CrystalType.gold: reward.amount,
-          });
+          await _crystalService.awardCrystals(
+            characterId: characterId,
+            crystalType: CrystalType.gold,
+            amount: reward.amount.toInt(),
+            source: 'event_rare_item',
+            sourceId: eventId,
+            description: 'イベントレアアイテム',
+          );
           break;
         
         case EventRewardType.special_ability:

@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../providers/character_provider.dart';
 import '../widgets/crystal_inventory_widget.dart';
+import '../services/gacha_service.dart';
+import '../services/crystal_service.dart';
+import '../models/gacha_pool.dart';
+import '../models/gacha_result.dart';
+import '../models/item.dart';
+import '../models/inventory_item.dart';
+import '../widgets/inventory_widget.dart';
+import '../widgets/item_image_widget.dart';
 
 class GachaScreen extends StatefulWidget {
   const GachaScreen({super.key});
@@ -10,12 +21,34 @@ class GachaScreen extends StatefulWidget {
 
 class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin {
   late TabController _tabController;
+  final _gachaService = GachaService();
+  final _crystalService = CrystalService();
   bool _isSpinning = false;
+  List<GachaPool> _gachaPools = [];
+  Map<String, dynamic> _collection = {'owned_items': [], 'all_items': []};
+  String? _characterId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadGachaPools();
+  }
+
+  Future<void> _loadGachaPools() async {
+    final pools = await _gachaService.getGachaPools();
+    setState(() {
+      _gachaPools = pools;
+    });
+  }
+
+  Future<void> _loadCollection() async {
+    if (_characterId != null) {
+      final collection = await _gachaService.getCharacterCollection(_characterId!);
+      setState(() {
+        _collection = collection;
+      });
+    }
   }
 
   @override
@@ -26,6 +59,23 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final characterProvider = context.watch<CharacterProvider>();
+    final characterId = characterProvider.character?.id;
+    
+    if (characterId == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    // Update character ID and load collection if changed
+    if (_characterId != characterId) {
+      _characterId = characterId;
+      _loadCollection();
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('ガチャ'),
@@ -55,7 +105,7 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Crystal inventory at the top
-          const CrystalInventoryWidget(),
+          CrystalInventoryWidget(characterId: _characterId!),
           const SizedBox(height: 24),
           
           // Gacha machine visual
@@ -133,6 +183,33 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
   }
 
   Widget _buildGachaOptions() {
+    if (_gachaPools.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'ガチャデータを読み込めませんでした',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'データベースの設定を確認してください',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,45 +220,51 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
           ),
         ),
         const SizedBox(height: 16),
-        _buildGachaOptionCard(
-          '単発ガチャ',
-          '青い結晶 x1',
-          'シンプルな装飾品やアバターパーツが手に入る',
-          Colors.blue,
-          Icons.diamond,
-          1,
-          () => _performGacha(1, 'blue'),
-        ),
-        const SizedBox(height: 12),
-        _buildGachaOptionCard(
-          '5連ガチャ',
-          '緑の結晶 x1',
-          'レア装飾品やスキンが手に入りやすい',
-          Colors.green,
-          Icons.diamond,
-          5,
-          () => _performGacha(5, 'green'),
-        ),
-        const SizedBox(height: 12),
-        _buildGachaOptionCard(
-          '20連ガチャ',
-          '金の結晶 x1',
-          'エピック装飾品が1つ以上確定！',
-          Colors.amber,
-          Icons.diamond,
-          20,
-          () => _performGacha(20, 'gold'),
-        ),
-        const SizedBox(height: 12),
-        _buildGachaOptionCard(
-          'レインボーガチャ',
-          'レインボー結晶 x1',
-          'レジェンダリーアイテムが確定！',
-          Colors.pink,
-          Icons.auto_awesome,
-          1,
-          () => _performGacha(1, 'rainbow'),
-        ),
+        ..._gachaPools.map((pool) {
+          Color color;
+          IconData icon;
+          switch (pool.crystalType) {
+            case 'blue':
+              color = Colors.blue;
+              icon = Icons.diamond;
+              break;
+            case 'green':
+              color = Colors.green;
+              icon = Icons.diamond;
+              break;
+            case 'gold':
+              color = Colors.amber;
+              icon = Icons.diamond;
+              break;
+            case 'rainbow':
+              color = Colors.pink;
+              icon = Icons.auto_awesome;
+              break;
+            default:
+              color = Colors.grey;
+              icon = Icons.diamond;
+          }
+
+          final crystalName = {
+            'blue': '青い結晶',
+            'green': '緑の結晶',
+            'gold': '金の結晶',
+            'rainbow': 'レインボー結晶',
+          }[pool.crystalType] ?? '結晶';
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildGachaOptionCard(
+              pool.name,
+              '$crystalName x${pool.crystalCost}',
+              pool.description ?? '',
+              color,
+              icon,
+              pool.pullCount,
+              () => _performGacha(pool),
+            ),
+          );
+        }).toList(),
       ],
     );
   }
@@ -366,147 +449,18 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
           Expanded(
             child: TabBarView(
               children: [
-                _buildCollectionGrid(_getAllItems()),
-                _buildCollectionGrid(_getAvatarItems()),
-                _buildCollectionGrid(_getDecorationItems()),
-                _buildCollectionGrid(_getSkinItems()),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCollectionGrid(List<_CollectionItem> items) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _buildCollectionItemCard(item);
-      },
-    );
-  }
-
-  Widget _buildCollectionItemCard(_CollectionItem item) {
-    return Card(
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: item.rarity == 'legendary'
-                    ? Colors.amber.withValues(alpha: 0.1)
-                    : item.rarity == 'epic'
-                        ? Colors.purple.withValues(alpha: 0.1)
-                        : item.rarity == 'rare'
-                            ? Colors.blue.withValues(alpha: 0.1)
-                            : Colors.grey.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Icon(
-                      item.icon,
-                      size: 40,
-                      color: item.owned
-                          ? (item.rarity == 'legendary'
-                              ? Colors.amber
-                              : item.rarity == 'epic'
-                                  ? Colors.purple
-                                  : item.rarity == 'rare'
-                                      ? Colors.blue
-                                      : Colors.grey[600])
-                          : Colors.grey[400],
-                    ),
-                  ),
-                  if (!item.owned)
-                    Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      color: Colors.black.withValues(alpha: 0.6),
-                      child: const Icon(
-                        Icons.lock,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  if (item.isNew)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Text(
-                          'NEW',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                Text(
-                  item.name,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: item.owned ? null : Colors.grey[500],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
+                InventoryWidget(characterId: _characterId!),
+                InventoryWidget(
+                  characterId: _characterId!,
+                  filterType: ItemType.avatar,
                 ),
-                const SizedBox(height: 2),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: (item.rarity == 'legendary'
-                            ? Colors.amber
-                            : item.rarity == 'epic'
-                                ? Colors.purple
-                                : item.rarity == 'rare'
-                                    ? Colors.blue
-                                    : Colors.grey)
-                        .withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    item.rarity.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: item.rarity == 'legendary'
-                          ? Colors.amber[700]
-                          : item.rarity == 'epic'
-                              ? Colors.purple[700]
-                              : item.rarity == 'rare'
-                                  ? Colors.blue[700]
-                                  : Colors.grey[700],
-                    ),
-                  ),
+                InventoryWidget(
+                  characterId: _characterId!,
+                  filterType: ItemType.decoration,
+                ),
+                InventoryWidget(
+                  characterId: _characterId!,
+                  filterType: ItemType.skin,
                 ),
               ],
             ),
@@ -516,132 +470,138 @@ class _GachaScreenState extends State<GachaScreen> with TickerProviderStateMixin
     );
   }
 
-  List<_CollectionItem> _getAllItems() {
-    return [
-      _CollectionItem('クリスタルクラウン', 'avatar', 'legendary', Icons.diamond, true, true),
-      _CollectionItem('ファイアブレード', 'decoration', 'epic', Icons.whatshot, true, false),
-      _CollectionItem('ミスティックローブ', 'avatar', 'rare', Icons.checkroom, false, false),
-      _CollectionItem('シャドウマスク', 'avatar', 'rare', Icons.masks, true, false),
-      _CollectionItem('ライトニングスタッフ', 'decoration', 'epic', Icons.flash_on, false, false),
-      _CollectionItem('フラワーリング', 'decoration', 'common', Icons.local_florist, true, false),
-    ];
-  }
 
-  List<_CollectionItem> _getAvatarItems() {
-    return _getAllItems().where((item) => item.type == 'avatar').toList();
-  }
+  void _performGacha(GachaPool pool) async {
+    if (_characterId == null) return;
 
-  List<_CollectionItem> _getDecorationItems() {
-    return _getAllItems().where((item) => item.type == 'decoration').toList();
-  }
-
-  List<_CollectionItem> _getSkinItems() {
-    return []; // Empty for now
-  }
-
-  void _performGacha(int pulls, String crystalType) async {
     setState(() {
       _isSpinning = true;
     });
 
-    // Simulate gacha spinning
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final result = await _gachaService.performGacha(_characterId!, pool.id);
+      
+      setState(() {
+        _isSpinning = false;
+      });
 
-    setState(() {
-      _isSpinning = false;
-    });
+      if (result == null || !result.success) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result?.error ?? 'ガチャの実行に失敗しました'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-    // Show result dialog
-    _showGachaResult(pulls, crystalType);
+      // Reload collection to reflect new items
+      _loadCollection();
+
+      // Show result dialog
+      if (!mounted) return;
+      _showGachaResult(result);
+    } catch (e) {
+      setState(() {
+        _isSpinning = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('エラーが発生しました'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _showGachaResult(int pulls, String crystalType) {
-    final results = _generateGachaResults(pulls, crystalType);
-    
+  void _showGachaResult(GachaResult result) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('ガチャ結果 (${pulls}回)'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: ListView.builder(
-            itemCount: results.length,
-            itemBuilder: (context, index) {
-              final result = results[index];
-              return ListTile(
-                leading: Icon(
-                  result.icon,
-                  color: result.rarity == 'legendary'
-                      ? Colors.amber
-                      : result.rarity == 'epic'
-                          ? Colors.purple
-                          : result.rarity == 'rare'
-                              ? Colors.blue
-                              : Colors.grey[600],
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'ガチャ結果',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                title: Text(result.name),
-                subtitle: Text(result.rarity.toUpperCase()),
-                trailing: result.isNew
-                    ? Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: result.items.length,
+                  itemBuilder: (context, index) {
+                    final item = result.items[index];
+                    final itemData = item.toItem();
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: ItemImageWidget(
+                          item: itemData,
+                          size: 48,
+                          showRarityGlow: false,
+                        ).animate(delay: (index * 100).ms)
+                          .fadeIn(duration: 300.ms)
+                          .scale(begin: const Offset(0.8, 0.8)),
+                        title: Text(
+                          item.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        child: const Text(
-                          'NEW',
+                        subtitle: Text(
+                          itemData.rarityText,
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
+                            color: itemData.rarityColor,
+                            fontSize: 12,
                           ),
                         ),
-                      )
-                    : null,
-              );
-            },
+                        trailing: item.isNew
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'NEW',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Switch to collection tab to see new items
+                  _tabController.animateTo(1);
+                },
+                child: const Text('コレクションを見る'),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
       ),
     );
   }
 
-  List<_CollectionItem> _generateGachaResults(int pulls, String crystalType) {
-    // Mock gacha results
-    return List.generate(pulls, (index) {
-      return _CollectionItem(
-        'ガチャアイテム${index + 1}',
-        'decoration',
-        crystalType == 'rainbow' ? 'legendary' : 'common',
-        Icons.star,
-        false,
-        true,
-      );
-    });
-  }
-}
-
-class _CollectionItem {
-  final String name;
-  final String type;
-  final String rarity;
-  final IconData icon;
-  final bool owned;
-  final bool isNew;
-
-  _CollectionItem(
-    this.name,
-    this.type,
-    this.rarity,
-    this.icon,
-    this.owned,
-    this.isNew,
-  );
 }

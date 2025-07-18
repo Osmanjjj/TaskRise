@@ -1,29 +1,114 @@
-class Crystal {
+import 'package:flutter/material.dart';
+
+enum CrystalType {
+  blue(
+    name: '青結晶',
+    description: 'タスク完了で獲得',
+    color: Colors.blue,
+    icon: Icons.diamond,
+  ),
+  green(
+    name: '緑結晶',
+    description: '7日連続達成で獲得',
+    color: Colors.green,
+    icon: Icons.eco,
+  ),
+  gold(
+    name: '金結晶',
+    description: '30日連続達成で獲得',
+    color: Colors.amber,
+    icon: Icons.star,
+  ),
+  rainbow(
+    name: '虹結晶',
+    description: '仲間を助けた時に獲得',
+    color: Colors.purple,
+    icon: Icons.auto_awesome,
+  );
+
+  const CrystalType({
+    required this.name,
+    required this.description,
+    required this.color,
+    required this.icon,
+  });
+
+  final String name;
+  final String description;
+  final Color color;
+  final IconData icon;
+
+  static CrystalType fromString(String value) {
+    return CrystalType.values.firstWhere(
+      (type) => type.toString().split('.').last == value,
+      orElse: () => CrystalType.blue,
+    );
+  }
+
+  // Get value for crystal type (relative value for conversion)
+  int get value {
+    switch (this) {
+      case CrystalType.blue:
+        return 1;
+      case CrystalType.green:
+        return 5;
+      case CrystalType.gold:
+        return 20;
+      case CrystalType.rainbow:
+        return 100;
+    }
+  }
+
+  // Get emoji for display
+  String get emoji {
+    switch (this) {
+      case CrystalType.blue:
+        return '💎';
+      case CrystalType.green:
+        return '💚';
+      case CrystalType.gold:
+        return '⭐';
+      case CrystalType.rainbow:
+        return '🌈';
+    }
+  }
+}
+
+class CrystalInventory {
   final String id;
   final String characterId;
-  final CrystalType type;
-  final int quantity;
+  final int blueCrystals;
+  final int greenCrystals;
+  final int goldCrystals;
+  final int rainbowCrystals;
+  final int storageLimit;
+  final double conversionRateBonus;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Crystal({
+  CrystalInventory({
     required this.id,
     required this.characterId,
-    required this.type,
-    required this.quantity,
+    this.blueCrystals = 0,
+    this.greenCrystals = 0,
+    this.goldCrystals = 0,
+    this.rainbowCrystals = 0,
+    this.storageLimit = 100,
+    this.conversionRateBonus = 1.0,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  factory Crystal.fromJson(Map<String, dynamic> json) {
-    return Crystal(
+  factory CrystalInventory.fromJson(Map<String, dynamic> json) {
+    return CrystalInventory(
       id: json['id'],
       characterId: json['character_id'],
-      type: CrystalType.values.firstWhere(
-        (e) => e.name == json['crystal_type'],
-        orElse: () => CrystalType.blue,
-      ),
-      quantity: json['quantity'] ?? 0,
+      blueCrystals: json['blue_crystals'] ?? 0,
+      greenCrystals: json['green_crystals'] ?? 0,
+      goldCrystals: json['gold_crystals'] ?? 0,
+      rainbowCrystals: json['rainbow_crystals'] ?? 0,
+      storageLimit: json['storage_limit'] ?? 100,
+      conversionRateBonus: (json['conversion_rate_bonus'] ?? 1.0).toDouble(),
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
@@ -33,132 +118,175 @@ class Crystal {
     return {
       'id': id,
       'character_id': characterId,
-      'crystal_type': type.name,
-      'quantity': quantity,
+      'blue_crystals': blueCrystals,
+      'green_crystals': greenCrystals,
+      'gold_crystals': goldCrystals,
+      'rainbow_crystals': rainbowCrystals,
+      'storage_limit': storageLimit,
+      'conversion_rate_bonus': conversionRateBonus,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  Crystal copyWith({
+  int getTotalCrystals() {
+    return blueCrystals + greenCrystals + goldCrystals + rainbowCrystals;
+  }
+
+  int getCrystalCount(CrystalType type) {
+    switch (type) {
+      case CrystalType.blue:
+        return blueCrystals;
+      case CrystalType.green:
+        return greenCrystals;
+      case CrystalType.gold:
+        return goldCrystals;
+      case CrystalType.rainbow:
+        return rainbowCrystals;
+    }
+  }
+
+  bool hasSpaceFor(int amount) {
+    return getTotalCrystals() + amount <= storageLimit;
+  }
+
+  CrystalInventory copyWith({
     String? id,
     String? characterId,
-    CrystalType? type,
-    int? quantity,
+    int? blueCrystals,
+    int? greenCrystals,
+    int? goldCrystals,
+    int? rainbowCrystals,
+    int? storageLimit,
+    double? conversionRateBonus,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return Crystal(
+    return CrystalInventory(
       id: id ?? this.id,
       characterId: characterId ?? this.characterId,
-      type: type ?? this.type,
-      quantity: quantity ?? this.quantity,
+      blueCrystals: blueCrystals ?? this.blueCrystals,
+      greenCrystals: greenCrystals ?? this.greenCrystals,
+      goldCrystals: goldCrystals ?? this.goldCrystals,
+      rainbowCrystals: rainbowCrystals ?? this.rainbowCrystals,
+      storageLimit: storageLimit ?? this.storageLimit,
+      conversionRateBonus: conversionRateBonus ?? this.conversionRateBonus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
 
-enum CrystalType {
-  blue(name: 'blue', displayName: '青結晶', baseReward: 1, color: 0xFF2196F3, emoji: '💙'),
-  green(name: 'green', displayName: '緑結晶', baseReward: 5, color: 0xFF4CAF50, emoji: '💚'),
-  gold(name: 'gold', displayName: '金結晶', baseReward: 20, color: 0xFFFFD700, emoji: '💛'),
-  rainbow(name: 'rainbow', displayName: '虹結晶', baseReward: 3, color: 0xFF9C27B0, emoji: '🌈');
+class CrystalTransaction {
+  final String id;
+  final String characterId;
+  final CrystalType crystalType;
+  final int amount;
+  final String transactionType;
+  final String source;
+  final String? sourceId;
+  final String? description;
+  final DateTime createdAt;
 
-  const CrystalType({
-    required this.name,
-    required this.displayName,
-    required this.baseReward,
-    required this.color,
-    required this.emoji,
+  CrystalTransaction({
+    required this.id,
+    required this.characterId,
+    required this.crystalType,
+    required this.amount,
+    required this.transactionType,
+    required this.source,
+    this.sourceId,
+    this.description,
+    required this.createdAt,
   });
 
-  final String name;
-  final String displayName;
-  final int baseReward;
-  final int color;
-  final String emoji;
-  
-  // Alias for baseReward to maintain compatibility
-  int get value => baseReward;
+  factory CrystalTransaction.fromJson(Map<String, dynamic> json) {
+    return CrystalTransaction(
+      id: json['id'],
+      characterId: json['character_id'],
+      crystalType: CrystalType.fromString(json['crystal_type']),
+      amount: json['amount'],
+      transactionType: json['transaction_type'],
+      source: json['source'],
+      sourceId: json['source_id'],
+      description: json['description'],
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'character_id': characterId,
+      'crystal_type': crystalType.toString().split('.').last,
+      'amount': amount,
+      'transaction_type': transactionType,
+      'source': source,
+      'source_id': sourceId,
+      'description': description,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }
 
-class CrystalInventory {
-  final Map<CrystalType, int> crystals;
+// Crystal reward configuration
+class CrystalReward {
+  final CrystalType type;
+  final int amount;
+  final String reason;
 
-  CrystalInventory({Map<CrystalType, int>? crystals})
-      : crystals = crystals ?? {
-          CrystalType.blue: 0,
-          CrystalType.green: 0,
-          CrystalType.gold: 0,
-          CrystalType.rainbow: 0,
-        };
+  const CrystalReward({
+    required this.type,
+    required this.amount,
+    required this.reason,
+  });
 
-  factory CrystalInventory.fromCrystalList(List<Crystal> crystalList) {
-    final Map<CrystalType, int> inventory = {};
-    for (final crystal in crystalList) {
-      inventory[crystal.type] = crystal.quantity;
-    }
-    return CrystalInventory(crystals: inventory);
-  }
-  
-  factory CrystalInventory.fromJson(Map<String, dynamic> json) {
-    final crystals = <CrystalType, int>{};
-    for (final type in CrystalType.values) {
-      crystals[type] = json[type.name] ?? 0;
-    }
-    return CrystalInventory(crystals: crystals);
-  }
+  static const taskCompletion = CrystalReward(
+    type: CrystalType.blue,
+    amount: 1,
+    reason: 'タスク完了',
+  );
 
-  int get totalCrystals => crystals.values.fold(0, (sum, count) => sum + count);
+  static const streak7Days = CrystalReward(
+    type: CrystalType.green,
+    amount: 5,
+    reason: '7日連続達成',
+  );
 
-  int getCrystalCount(CrystalType type) => crystals[type] ?? 0;
-  
-  // Individual crystal type getters for compatibility
-  int get blueCrystals => getCrystalCount(CrystalType.blue);
-  int get greenCrystals => getCrystalCount(CrystalType.green);
-  int get goldCrystals => getCrystalCount(CrystalType.gold);
-  int get rainbowCrystals => getCrystalCount(CrystalType.rainbow);
+  static const streak30Days = CrystalReward(
+    type: CrystalType.gold,
+    amount: 20,
+    reason: '30日連続達成',
+  );
 
-  bool canAffordGacha({
-    int blueCost = 10,
-    int greenCost = 2,
-    int goldCost = 1,
-    int rainbowCost = 0,
-  }) {
-    return getCrystalCount(CrystalType.blue) >= blueCost &&
-           getCrystalCount(CrystalType.green) >= greenCost &&
-           getCrystalCount(CrystalType.gold) >= goldCost &&
-           getCrystalCount(CrystalType.rainbow) >= rainbowCost;
-  }
+  static const helpFriend = CrystalReward(
+    type: CrystalType.rainbow,
+    amount: 3,
+    reason: '仲間を助けた',
+  );
 
-  CrystalInventory useCrystals({
-    int blueCost = 0,
-    int greenCost = 0,
-    int goldCost = 0,
-    int rainbowCost = 0,
-  }) {
-    final newCrystals = Map<CrystalType, int>.from(crystals);
-    newCrystals[CrystalType.blue] = (newCrystals[CrystalType.blue] ?? 0) - blueCost;
-    newCrystals[CrystalType.green] = (newCrystals[CrystalType.green] ?? 0) - greenCost;
-    newCrystals[CrystalType.gold] = (newCrystals[CrystalType.gold] ?? 0) - goldCost;
-    newCrystals[CrystalType.rainbow] = (newCrystals[CrystalType.rainbow] ?? 0) - rainbowCost;
-    
-    return CrystalInventory(crystals: newCrystals);
+  static const weeklyStreak = CrystalReward(
+    type: CrystalType.green,
+    amount: 3,
+    reason: '週間連続ボーナス',
+  );
+
+  factory CrystalReward.fromJson(Map<String, dynamic> json) {
+    return CrystalReward(
+      type: CrystalType.values.firstWhere(
+        (t) => t.name == json['type'],
+        orElse: () => CrystalType.blue,
+      ),
+      amount: json['amount'] ?? 0,
+      reason: json['reason'] ?? '',
+    );
   }
 
-  CrystalInventory addCrystals({
-    int blueGain = 0,
-    int greenGain = 0,
-    int goldGain = 0,
-    int rainbowGain = 0,
-  }) {
-    final newCrystals = Map<CrystalType, int>.from(crystals);
-    newCrystals[CrystalType.blue] = (newCrystals[CrystalType.blue] ?? 0) + blueGain;
-    newCrystals[CrystalType.green] = (newCrystals[CrystalType.green] ?? 0) + greenGain;
-    newCrystals[CrystalType.gold] = (newCrystals[CrystalType.gold] ?? 0) + goldGain;
-    newCrystals[CrystalType.rainbow] = (newCrystals[CrystalType.rainbow] ?? 0) + rainbowGain;
-    
-    return CrystalInventory(crystals: newCrystals);
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type.name,
+      'amount': amount,
+      'reason': reason,
+    };
   }
 }

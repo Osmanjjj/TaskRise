@@ -1,435 +1,357 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../models/crystal.dart';
+import '../services/crystal_service.dart';
 
 class CrystalInventoryWidget extends StatelessWidget {
-  const CrystalInventoryWidget({super.key});
+  final String characterId;
+  final VoidCallback? onTap;
+
+  const CrystalInventoryWidget({
+    super.key,
+    required this.characterId,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GameProvider>(
-      builder: (context, gameProvider, child) {
-        final crystals = gameProvider.crystals;
+    final crystalService = CrystalService();
+    
+    return StreamBuilder<CrystalInventory?>(
+      stream: crystalService.watchCrystalInventory(characterId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // 初回読み込み時も既存のデータがあればそれを表示
+          return FutureBuilder<CrystalInventory?>(
+            future: crystalService.getCrystalInventory(characterId),
+            builder: (context, futureSnapshot) {
+              if (futureSnapshot.hasData && futureSnapshot.data != null) {
+                return _buildContent(context, futureSnapshot.data!);
+              }
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            },
+          );
+        }
+        
+        if (snapshot.hasError) {
+          print('Error watching crystal inventory: ${snapshot.error}');
+          return const SizedBox.shrink();
+        }
+        
+        final inventory = snapshot.data;
+        if (inventory == null) {
+          return const SizedBox.shrink();
+        }
+        
+        return _buildContent(context, inventory);
+      },
+    );
+  }
+  
+  Widget _buildContent(BuildContext context, CrystalInventory inventory) {
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '結晶の在庫',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      '${inventory.getTotalCrystals()} / ${inventory.storageLimit}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: inventory.getTotalCrystals() >= inventory.storageLimit
+                            ? Colors.red
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.casino),
+                      iconSize: 20,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      tooltip: 'ガチャを回す',
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/gacha');
+                      },
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: CrystalType.values.map((type) {
+                final count = inventory.getCrystalCount(type);
+                return _buildCrystalItem(context, type, count);
+              }).toList(),
+            ),
+            if (inventory.conversionRateBonus > 1.0) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.trending_up,
+                    size: 16,
+                    color: Colors.green,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '変換率ボーナス: x${inventory.conversionRateBonus.toStringAsFixed(1)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ).animate().fadeIn(duration: 300.ms).scale(
+        begin: const Offset(0.95, 0.95),
+        end: const Offset(1, 1),
+        duration: 300.ms,
+      ),
+    );
+  }
+
+  Widget _buildCrystalItem(BuildContext context, CrystalType type, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: type.color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: type.color.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            type.icon,
+            size: 16,
+            color: type.color,
+          ).animate(
+            onPlay: (controller) => controller.repeat(),
+          ).shimmer(
+            duration: 2000.ms,
+            color: type.color.withValues(alpha: 0.3),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            count.toString(),
+            style: TextStyle(
+              color: type.color,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Crystal detail dialog
+class CrystalDetailDialog extends StatelessWidget {
+  final CrystalInventory inventory;
+
+  const CrystalDetailDialog({
+    super.key,
+    required this.inventory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.diamond,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          const Text('結晶の詳細'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...CrystalType.values.map((type) => _buildDetailRow(
+              context,
+              type,
+              inventory.getCrystalCount(type),
+            )),
+            const Divider(height: 24),
+            _buildStorageInfo(context),
+            if (inventory.conversionRateBonus > 1.0) ...[
+              const SizedBox(height: 8),
+              _buildBonusInfo(context),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('閉じる'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, CrystalType type, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(
+            type.icon,
+            color: type.color,
+            size: 28,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '習慣の結晶',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showGachaDialog(context, gameProvider),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.casino,
-                              size: 16,
-                              color: Colors.purple[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'ガチャ',
-                              style: TextStyle(
-                                color: Colors.purple[600],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildCrystalCount(
-                        context,
-                        'ブルー',
-                        crystals['blue'] ?? 0,
-                        Colors.blue,
-                        Icons.diamond,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildCrystalCount(
-                        context,
-                        'グリーン',
-                        crystals['green'] ?? 0,
-                        Colors.green,
-                        Icons.diamond,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildCrystalCount(
-                        context,
-                        'ゴールド',
-                        crystals['gold'] ?? 0,
-                        Colors.amber,
-                        Icons.diamond,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildCrystalCount(
-                        context,
-                        'レインボー',
-                        crystals['rainbow'] ?? 0,
-                        Colors.purple,
-                        Icons.auto_awesome,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                Text(
+                  type.name,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '習慣完了で結晶を獲得！ガチャで装備やアイテムを入手しよう',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    ],
+                ),
+                Text(
+                  type.description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: type.color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: TextStyle(
+                color: type.color,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCrystalCount(
-    BuildContext context,
-    String label,
-    int count,
-    Color color,
-    IconData icon,
-  ) {
+  Widget _buildStorageInfo(BuildContext context) {
+    final used = inventory.getTotalCrystals();
+    final limit = inventory.storageLimit;
+    final percentage = (used / limit * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '保管容量',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            Text(
+              '$used / $limit ($percentage%)',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: percentage >= 90 ? Colors.red : null,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(
+          value: used / limit,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: percentage >= 90 
+              ? Colors.red 
+              : percentage >= 70 
+                  ? Colors.orange 
+                  : Theme.of(context).colorScheme.primary,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBonusInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: Colors.green.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: Colors.green.withValues(alpha: 0.3),
+        ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 4),
+          Icon(
+            Icons.trending_up,
+            color: Colors.green,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
           Text(
-            count.toString(),
-            style: TextStyle(
-              fontSize: 16,
+            '変換率ボーナス: x${inventory.conversionRateBonus.toStringAsFixed(1)}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.green,
               fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[600],
             ),
           ),
         ],
       ),
     );
-  }
-
-  void _showGachaDialog(BuildContext context, GameProvider gameProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.casino, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('習慣ガチャ'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('結晶を使ってアイテムを獲得しよう！'),
-            const SizedBox(height: 16),
-            _buildGachaOption(
-              context,
-              'ブルーガチャ',
-              '1回',
-              Colors.blue,
-              () => _performGacha(context, gameProvider, 'blue', 1),
-              gameProvider.totalBlueCrystals >= 1,
-            ),
-            const SizedBox(height: 8),
-            _buildGachaOption(
-              context,
-              'グリーンガチャ',
-              '5回',
-              Colors.green,
-              () => _performGacha(context, gameProvider, 'green', 1),
-              gameProvider.totalGreenCrystals >= 1,
-            ),
-            const SizedBox(height: 8),
-            _buildGachaOption(
-              context,
-              'ゴールドガチャ',
-              '20回',
-              Colors.amber,
-              () => _performGacha(context, gameProvider, 'gold', 1),
-              gameProvider.totalGoldCrystals >= 1,
-            ),
-            const SizedBox(height: 8),
-            _buildGachaOption(
-              context,
-              'レインボーガチャ',
-              '3回',
-              Colors.purple,
-              () => _performGacha(context, gameProvider, 'rainbow', 1),
-              gameProvider.totalRainbowCrystals >= 1,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGachaOption(
-    BuildContext context,
-    String title,
-    String subtitle,
-    Color color,
-    VoidCallback onTap,
-    bool enabled,
-  ) {
-    return Material(
-      color: enabled ? color.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.diamond,
-                color: enabled ? color : Colors.grey,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: enabled ? color : Colors.grey,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: enabled ? color : Colors.grey,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _performGacha(
-    BuildContext context,
-    GameProvider gameProvider,
-    String crystalType,
-    int amount,
-  ) async {
-    Navigator.of(context).pop(); // Close gacha dialog
-
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('ガチャ中...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final result = await gameProvider.useCrystalsForGacha(crystalType, amount);
-      
-      Navigator.of(context).pop(); // Close loading dialog
-
-      if (result != null) {
-        _showGachaResults(context, result);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ガチャに失敗しました'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('エラー: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showGachaResults(BuildContext context, Map<String, dynamic> result) {
-    final items = result['items'] as List;
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.celebration, color: Colors.amber),
-            SizedBox(width: 8),
-            Text('ガチャ結果'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('おめでとうございます！'),
-            const SizedBox(height: 16),
-            ...items.map((item) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _getRarityColor(item['rarity']).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _getRarityColor(item['rarity']).withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _getItemIcon(item['type']),
-                    color: _getRarityColor(item['rarity']),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      item['name'],
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: _getRarityColor(item['rarity']),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )).toList(),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getRarityColor(String? rarity) {
-    switch (rarity) {
-      case 'legendary':
-        return Colors.purple;
-      case 'epic':
-        return Colors.deepPurple;
-      case 'rare':
-        return Colors.blue;
-      case 'uncommon':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getItemIcon(String? type) {
-    switch (type) {
-      case 'equipment':
-        return Icons.shopping_bag;
-      case 'booster':
-        return Icons.speed;
-      case 'consumable':
-        return Icons.local_pharmacy;
-      default:
-        return Icons.inventory;
-    }
   }
 }

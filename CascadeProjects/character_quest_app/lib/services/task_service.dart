@@ -2,12 +2,15 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task.dart';
 import '../models/character.dart';
+import '../models/crystal.dart';
 import 'character_service.dart';
+import 'crystal_service.dart';
 import '../providers/character_provider.dart';
 
 class TaskService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final CharacterService _characterService = CharacterService();
+  final CrystalService _crystalService = CrystalService();
   final CharacterProvider? _characterProvider;
 
   TaskService({CharacterProvider? characterProvider}) : _characterProvider = characterProvider;
@@ -190,6 +193,27 @@ class TaskService {
 
       // キャラクターの経験値を更新
       await _updateCharacterExperience(totalExp);
+
+      // 結晶の獲得処理
+      // 注意: タスク完了時の青結晶付与はデータベーストリガーで自動的に行われるため、
+      // ここでは重複を避けるため削除しています。
+      
+      try {
+        // 習慣タスクの連続達成マイルストーンチェック
+        if (updatedTask.isHabit && updatedTask.streakCount > 0) {
+          final milestoneResult = await _crystalService.checkStreakMilestones(
+            characterId: task.characterId!,
+            streakCount: updatedTask.streakCount,
+            taskId: task.id,
+          );
+          
+          if (milestoneResult['milestone_reached'] == true) {
+            print('マイルストーン達成！追加結晶を獲得しました');
+          }
+        }
+      } catch (e) {
+        print('結晶獲得処理でエラーが発生しましたが、タスク完了は成功しました: $e');
+      }
 
       return updatedTask;
     } catch (e) {

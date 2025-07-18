@@ -5,12 +5,9 @@ import 'providers/auth_provider.dart';
 import 'providers/character_provider.dart';
 import 'providers/game_provider.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/auth_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/habits_screen.dart';
-import 'screens/settings_screen.dart';
 import 'widgets/auth_guard.dart';
 import 'services/supabase_service.dart';
+import 'navigation/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,13 +32,8 @@ class CharacterQuestApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Character Quest',
         home: const AuthGuard(child: DashboardScreen()),
-        routes: {
-          '/auth': (context) => const AuthScreen(),
-          '/dashboard': (context) => const AuthGuard(child: DashboardScreen()),
-          '/profile': (context) => const AuthGuard(child: ProfileScreen()),
-          '/habits': (context) => const AuthGuard(child: HabitsScreen()),
-          '/settings': (context) => const AuthGuard(child: SettingsScreen()),
-        },
+        onGenerateRoute: AppRouter.generateRoute,
+        navigatorKey: AppNavigator.navigatorKey,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF667eea),
